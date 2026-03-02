@@ -468,9 +468,9 @@ async def register(data: UserCreate):
         "logo_url": None,
         "default_delivery_days": 3,
         "badges": [],
-        "email_verified": False,
-        "verification_token": verification_token,
-        "verification_token_expires": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+        "email_verified": True,
+        "verification_token": None,
+        "verification_token_expires": None,
         "features": {
             "analytics": False,
             "finances": False,
@@ -505,27 +505,24 @@ async def register(data: UserCreate):
     
     await db.users.insert_one(user_doc)
     
-    # Send verification email
-    email_result = await send_verification_email(data.email, verification_token)
+    # Auto-login: generate token immediately
+    token = create_token(user_id, data.email)
+    await log_audit(user_id, "register", {"email": data.email})
     
-    if email_result.get("success"):
-        return {
-            "message": "Registration successful. Please check your email to verify your account.",
+    return {
+        "message": "Registration successful. Your account has been activated.",
+        "email": data.email,
+        "requires_verification": False,
+        "token": token,
+        "user": {
+            "id": user_id,
             "email": data.email,
-            "requires_verification": True
+            "business_name": data.business_name,
+            "referral_code": referral_code,
+            "is_pro": user_doc["is_pro"],
+            "features": user_doc["features"]
         }
-    else:
-        # Email failed but account was created - auto-verify so user isn't stuck
-        logger.warning(f"Email failed for {data.email}: {email_result.get('error')}. Auto-verifying account.")
-        await db.users.update_one(
-            {"email": data.email},
-            {"$set": {"email_verified": True, "verification_token": None}}
-        )
-        return {
-            "message": "Registration successful. Your account has been activated.",
-            "email": data.email,
-            "requires_verification": False
-        }
+    }
 
 
 @api_router.get("/auth/verify-email/{token}", response_model=dict)
@@ -608,12 +605,9 @@ async def login(data: UserLogin):
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Check email verification
-    if not user.get("email_verified", True):  # default True for old users without this field
-        raise HTTPException(
-            status_code=403,
-            detail="Email not verified. Please check your inbox for the verification link."
-        )
+    # Email verification disabled for now (no custom domain for Resend)
+    # if not user.get("email_verified", True):
+    #     raise HTTPException(status_code=403, detail="Email not verified.")
     
     # Log audit
     await log_audit(user["id"], "login", {"email": data.email})

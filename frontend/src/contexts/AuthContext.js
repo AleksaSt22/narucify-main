@@ -50,7 +50,10 @@ export const AuthProvider = ({ children }) => {
       password,
       business_name: businessName
     });
-    // Registration now requires email verification - don't auto-login
+    // Auto-login if token is returned (email verification disabled)
+    if (response.data.token && response.data.user) {
+      loginWithToken(response.data.token, response.data.user);
+    }
     return response.data;
   };
 
