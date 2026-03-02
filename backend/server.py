@@ -64,9 +64,11 @@ async def send_verification_email(to_email: str, verification_token: str):
     """Send email verification link via Resend API"""
     verify_url = f"{FRONTEND_URL}/verify-email/{verification_token}"
     
+    logger.info(f"send_verification_email called: to={to_email}, RESEND_API_KEY={'SET('+RESEND_API_KEY[:8]+'...)' if RESEND_API_KEY else 'NOT SET'}, FRONTEND_URL={FRONTEND_URL}, from={RESEND_FROM_EMAIL}")
+    
     if not RESEND_API_KEY:
         logger.warning(f"RESEND_API_KEY not set. Verification link: {verify_url}")
-        return True
+        return {"success": False, "error": "RESEND_API_KEY not configured"}
     
     html_body = f"""
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
@@ -84,10 +86,13 @@ async def send_verification_email(to_email: str, verification_token: str):
     """
     
     try:
-        async with httpx.AsyncClient() as client_http:
+        async with httpx.AsyncClient(timeout=30.0) as client_http:
             response = await client_http.post(
                 "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                },
                 json={
                     "from": RESEND_FROM_EMAIL,
                     "to": [to_email],
@@ -95,15 +100,16 @@ async def send_verification_email(to_email: str, verification_token: str):
                     "html": html_body
                 }
             )
-            if response.status_code == 200:
-                logger.info(f"Verification email sent to {to_email}")
-                return True
+            logger.info(f"Resend API response: status={response.status_code}, body={response.text}")
+            if response.status_code in (200, 201, 202):
+                logger.info(f"Verification email sent successfully to {to_email}")
+                return {"success": True}
             else:
                 logger.error(f"Resend API error: {response.status_code} - {response.text}")
-                return False
+                return {"success": False, "error": f"Resend API {response.status_code}: {response.text}"}
     except Exception as e:
         logger.error(f"Failed to send verification email: {e}")
-        return False
+        return {"success": False, "error": str(e)}
 
 async def send_resend_verification_email(to_email: str, verification_token: str):
     """Resend the verification email (for resend button)"""
@@ -340,6 +346,21 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
+@api_router.get("/test-email/{email}")
+async def test_email(email: str):
+    """Test endpoint to debug Resend email sending"""
+    test_token = str(uuid.uuid4())
+    result = await send_verification_email(email, test_token)
+    return {
+        "email_to": email,
+        "resend_api_key_set": bool(RESEND_API_KEY),
+        "resend_api_key_prefix": RESEND_API_KEY[:12] + "..." if RESEND_API_KEY else "NOT SET",
+        "from_email": RESEND_FROM_EMAIL,
+        "frontend_url": FRONTEND_URL,
+        "verify_url": f"{FRONTEND_URL}/verify-email/{test_token}",
+        "result": result
+    }
+
 # ==================== AUTH HELPERS ====================
 
 def check_rate_limit(identifier: str) -> bool:
@@ -472,13 +493,26 @@ async def register(data: UserCreate):
     await db.users.insert_one(user_doc)
     
     # Send verification email
-    await send_verification_email(data.email, verification_token)
+    email_result = await send_verification_email(data.email, verification_token)
     
-    return {
-        "message": "Registration successful. Please check your email to verify your account.",
-        "email": data.email,
-        "requires_verification": True
-    }
+    if email_result.get("success"):
+        return {
+            "message": "Registration successful. Please check your email to verify your account.",
+            "email": data.email,
+            "requires_verification": True
+        }
+    else:
+        # Email failed but account was created - auto-verify so user isn't stuck
+        logger.warning(f"Email failed for {data.email}: {email_result.get('error')}. Auto-verifying account.")
+        await db.users.update_one(
+            {"email": data.email},
+            {"$set": {"email_verified": True, "verification_token": None}}
+        )
+        return {
+            "message": "Registration successful. Your account has been activated.",
+            "email": data.email,
+            "requires_verification": False
+        }
 
 
 @api_router.get("/auth/verify-email/{token}", response_model=dict)
