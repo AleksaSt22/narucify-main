@@ -64,16 +64,14 @@ else:
 # Resend Email Configuration
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 _raw_from_email = os.environ.get('RESEND_FROM_EMAIL', 'Narucify <onboarding@resend.dev>')
-# Fix from_email format: ensure it's "Name <email>" format
-if '<' not in _raw_from_email and '@' in _raw_from_email:
-    # Just a plain email like "onboarding@resend.dev" -> wrap it
-    RESEND_FROM_EMAIL = f"Narucify <{_raw_from_email}>"
-elif '<' not in _raw_from_email and ' ' in _raw_from_email and '@' in _raw_from_email.split(' ')[-1]:
-    # "Narucify onboarding@resend.dev" -> "Narucify <onboarding@resend.dev>"
-    parts = _raw_from_email.rsplit(' ', 1)
-    RESEND_FROM_EMAIL = f"{parts[0]} <{parts[1]}>"
+# Fix from_email: extract just the email part and rebuild properly
+import re as _re
+_email_match = _re.search(r'[\w.+-]+@[\w.-]+\.\w+', _raw_from_email)
+if _email_match:
+    _extracted_email = _email_match.group(0)
+    RESEND_FROM_EMAIL = f"Narucify <{_extracted_email}>"
 else:
-    RESEND_FROM_EMAIL = _raw_from_email
+    RESEND_FROM_EMAIL = 'Narucify <onboarding@resend.dev>'
 
 async def send_verification_email(to_email: str, verification_token: str):
     """Send email verification link via Resend API"""
