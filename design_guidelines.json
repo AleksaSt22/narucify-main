@@ -1,0 +1,219 @@
+{
+  "meta": {
+    "project_name": "DM Order System",
+    "designer": "E1",
+    "version": "1.0",
+    "theme_strategy": "Dark Mode First (The Midnight Hustle)"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Outfit, sans-serif",
+      "body": "Plus Jakarta Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "installation": {
+      "google_fonts_import": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl md:text-4xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold tracking-tight",
+      "h4": "text-xl font-medium tracking-normal",
+      "body_lg": "text-lg leading-relaxed",
+      "body_base": "text-base leading-relaxed text-muted-foreground",
+      "body_sm": "text-sm leading-normal text-muted-foreground",
+      "caption": "text-xs font-medium uppercase tracking-wider text-muted-foreground/70"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#FF5500",
+        "foreground": "#FFFFFF",
+        "hover": "#CC4400",
+        "active": "#993300"
+      },
+      "background": {
+        "DEFAULT": "#09090B",
+        "secondary": "#121212",
+        "tertiary": "#18181B"
+      },
+      "surface": {
+        "card": "#121212",
+        "popover": "#09090B",
+        "border": "#27272A"
+      },
+      "text": {
+        "primary": "#FAFAFA",
+        "secondary": "#A1A1AA",
+        "tertiary": "#52525B"
+      },
+      "status": {
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444",
+        "info": "#3B82F6"
+      }
+    },
+    "shadcn_variables": {
+      "root": {
+        "--background": "0 0% 100%",
+        "--foreground": "240 10% 3.9%",
+        "--card": "0 0% 100%",
+        "--card-foreground": "240 10% 3.9%",
+        "--popover": "0 0% 100%",
+        "--popover-foreground": "240 10% 3.9%",
+        "--primary": "20 100% 50%",
+        "--primary-foreground": "0 0% 98%",
+        "--secondary": "240 4.8% 95.9%",
+        "--secondary-foreground": "240 5.9% 10%",
+        "--muted": "240 4.8% 95.9%",
+        "--muted-foreground": "240 3.8% 46.1%",
+        "--accent": "240 4.8% 95.9%",
+        "--accent-foreground": "240 5.9% 10%",
+        "--destructive": "0 84.2% 60.2%",
+        "--destructive-foreground": "0 0% 98%",
+        "--border": "240 5.9% 90%",
+        "--input": "240 5.9% 90%",
+        "--ring": "20 100% 50%",
+        "--radius": "0.5rem"
+      },
+      "dark": {
+        "--background": "240 10% 3.9%",
+        "--foreground": "0 0% 98%",
+        "--card": "240 10% 3.9%",
+        "--card-foreground": "0 0% 98%",
+        "--popover": "240 10% 3.9%",
+        "--popover-foreground": "0 0% 98%",
+        "--primary": "20 100% 50%",
+        "--primary-foreground": "0 0% 98%",
+        "--secondary": "240 3.7% 15.9%",
+        "--secondary-foreground": "0 0% 98%",
+        "--muted": "240 3.7% 15.9%",
+        "--muted-foreground": "240 5% 64.9%",
+        "--accent": "240 3.7% 15.9%",
+        "--accent-foreground": "0 0% 98%",
+        "--destructive": "0 62.8% 30.6%",
+        "--destructive-foreground": "0 0% 98%",
+        "--border": "240 3.7% 15.9%",
+        "--input": "240 3.7% 15.9%",
+        "--ring": "20 100% 50%"
+      }
+    }
+  },
+  "layout_strategies": {
+    "dashboard_grid": {
+      "name": "The Command Center (Bento Mode B)",
+      "description": "High density grid for data correlation. No wasted pixels.",
+      "classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 md:p-6",
+      "items": {
+        "summary_card": "col-span-1 bg-card border border-border p-6 rounded-lg",
+        "main_chart": "col-span-1 md:col-span-2 lg:col-span-3 row-span-2 bg-card border border-border p-6 rounded-lg",
+        "feed_list": "col-span-1 row-span-2 bg-card border border-border p-6 rounded-lg h-full"
+      }
+    },
+    "public_order_page": {
+      "name": "The Digital Receipt",
+      "description": "Mobile-first, vertical stack, focus on trust and clarity.",
+      "structure": [
+        "Header (Logo + Language Toggle)",
+        "Product Summary (Card List)",
+        "Customer Form (Input Group)",
+        "Total & Confirm (Sticky Bottom Bar)"
+      ],
+      "container_classes": "max-w-md mx-auto min-h-screen bg-background p-4 pb-32"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md font-medium transition-all active:scale-95",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 rounded-md font-medium",
+      "ghost": "hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 rounded-md font-medium",
+      "destructive": "bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 px-4 py-2 rounded-md font-medium"
+    },
+    "cards": {
+      "base": "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+      "hover_effect": "hover:border-primary/50 transition-colors duration-300"
+    },
+    "inputs": {
+      "base": "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "bg-background/80 backdrop-blur-xl border-b border-border/50",
+    "gradients": {
+      "subtle_glow": "bg-gradient-to-tr from-primary/10 via-transparent to-transparent",
+      "text_gradient": "bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60"
+    },
+    "borders": {
+      "tech": "border border-border/40"
+    }
+  },
+  "image_urls": {
+    "products": [
+      {
+        "url": "https://images.pexels.com/photos/29194536/pexels-photo-29194536.jpeg",
+        "alt": "Minimalist cosmetic bottle on dark background",
+        "category": "cosmetics"
+      },
+      {
+        "url": "https://images.pexels.com/photos/6800936/pexels-photo-6800936.jpeg",
+        "alt": "Luxury skincare product",
+        "category": "cosmetics"
+      },
+      {
+        "url": "https://images.pexels.com/photos/35675692/pexels-photo-35675692.jpeg",
+        "alt": "Fashion accessory flat lay",
+        "category": "fashion"
+      },
+      {
+        "url": "https://images.pexels.com/photos/30039664/pexels-photo-30039664.jpeg",
+        "alt": "Minimalist jewelry",
+        "category": "fashion"
+      }
+    ],
+    "logistics": [
+      {
+        "url": "https://images.pexels.com/photos/4440841/pexels-photo-4440841.jpeg",
+        "alt": "Cardboard shipping box",
+        "category": "shipping"
+      }
+    ]
+  },
+  "instructions_to_main_agent": {
+    "general": [
+      "Implement the 'Dark Mode First' strategy. Ensure all default views are dark.",
+      "Use the 'Outfit' font for all headings to give a modern, brand-distinct look.",
+      "Use 'Plus Jakarta Sans' for body text to ensure high readability on mobile.",
+      "The Primary Color is #FF5500 (Orange). Use it for CTAs and active states. Do NOT use it for backgrounds unless it's a small badge or button.",
+      "For the Dashboard, strictly follow the 'Bento Grid' layout. Do not create a generic list view.",
+      "For the Public Order Page, focus on the 'Digital Receipt' aesthetic. It should feel like a native mobile app view.",
+      "Ensure all inputs and interactive elements have a minimum height of 44px for touch targets."
+    ],
+    "files_to_update": [
+      "/app/frontend/src/index.css (Update CSS variables)",
+      "/app/frontend/tailwind.config.js (Update font families and colors)"
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}

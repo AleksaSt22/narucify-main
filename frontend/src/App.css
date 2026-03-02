@@ -1,0 +1,63 @@
+/* Narucify - App Styles */
+
+/* Ensure dark mode is applied */
+.dark {
+  color-scheme: dark;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus visible outlines */
+:focus-visible {
+  outline: 2px solid hsl(20 100% 50%);
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background: hsl(20 100% 50% / 0.3);
+  color: hsl(0 0% 98%);
+}
+
+/* Remove default button styles for better customization */
+button {
+  font-family: inherit;
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+/* Smooth animations for reduced motion users */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
