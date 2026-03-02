@@ -30,9 +30,6 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 import certifi
-import ssl as _ssl
-# Build proper SSL context for Python 3.14+ compatibility
-_ssl_context = _ssl.create_default_context(cafile=certifi.where())
 client = AsyncIOMotorClient(
     mongo_url,
     maxPoolSize=50,
@@ -43,7 +40,6 @@ client = AsyncIOMotorClient(
     retryWrites=True,
     tls=True,
     tlsCAFile=certifi.where(),
-    ssl_cert_reqs=_ssl.CERT_REQUIRED,
 )
 db = client[os.environ['DB_NAME']]
 db_connected = False
