@@ -54,11 +54,26 @@ ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@narucify.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 # Frontend URL for OG redirects
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+_raw_frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+# Ensure FRONTEND_URL always has https:// prefix
+if _raw_frontend_url and not _raw_frontend_url.startswith('http'):
+    FRONTEND_URL = f"https://{_raw_frontend_url}"
+else:
+    FRONTEND_URL = _raw_frontend_url
 
 # Resend Email Configuration
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-RESEND_FROM_EMAIL = os.environ.get('RESEND_FROM_EMAIL', 'Narucify <onboarding@resend.dev>')
+_raw_from_email = os.environ.get('RESEND_FROM_EMAIL', 'Narucify <onboarding@resend.dev>')
+# Fix from_email format: ensure it's "Name <email>" format
+if '<' not in _raw_from_email and '@' in _raw_from_email:
+    # Just a plain email like "onboarding@resend.dev" -> wrap it
+    RESEND_FROM_EMAIL = f"Narucify <{_raw_from_email}>"
+elif '<' not in _raw_from_email and ' ' in _raw_from_email and '@' in _raw_from_email.split(' ')[-1]:
+    # "Narucify onboarding@resend.dev" -> "Narucify <onboarding@resend.dev>"
+    parts = _raw_from_email.rsplit(' ', 1)
+    RESEND_FROM_EMAIL = f"{parts[0]} <{parts[1]}>"
+else:
+    RESEND_FROM_EMAIL = _raw_from_email
 
 async def send_verification_email(to_email: str, verification_token: str):
     """Send email verification link via Resend API"""
