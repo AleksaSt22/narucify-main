@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
@@ -20,90 +18,293 @@ import {
   ArrowLeft,
   Check,
   MapPin,
-  Phone,
-  User,
-  Mail,
-  CreditCard
+  CreditCard,
+  ShoppingCart,
+  Sparkles,
+  ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// ==================== TRANSLATIONS ====================
 const translations = {
   en: {
-    shop: 'Shop',
+    catalog: 'Catalog',
     products: 'Products',
-    addToOrder: 'Order',
+    addToOrder: 'Add to Cart',
     outOfStock: 'Out of Stock',
     currency: 'RSD',
     loading: 'Loading...',
     shopNotFound: 'Shop not found',
-    noProducts: 'No products available',
+    noProducts: 'No products available yet',
+    noProductsDesc: 'Check back soon for new arrivals!',
     poweredBy: 'Powered by Narucify',
-    cart: 'Your Order',
-    emptyCart: 'Your cart is empty',
     total: 'Total',
     checkout: 'Complete Order',
-    yourDetails: 'Your Details',
     fullName: 'Full Name',
     phone: 'Phone Number',
-    address: 'Address',
+    address: 'Delivery Address',
     city: 'City',
     postalCode: 'Postal Code',
     email: 'Email (optional)',
-    paymentMethod: 'Payment Method',
     cashOnDelivery: 'Cash on Delivery',
     bankTransfer: 'Bank Transfer',
-    subscribePromo: 'I want to receive promotions',
+    subscribePromo: 'I want to receive promotions and special offers',
     confirmOrder: 'Confirm Order',
-    backToShop: 'Back to Shop',
     orderSuccess: 'Order Confirmed!',
-    thankYou: 'Thank you for your order',
+    thankYou: "Thank you for your order! We'll get it to you as soon as possible.",
     orderNumber: 'Your order number',
     trackOrder: 'Track Order',
-    quantity: 'Qty',
-    remove: 'Remove',
     continueShopping: 'Continue Shopping',
-    required: 'Required'
+    addedToCart: 'Added to cart!',
+    deliveryInfo: 'Delivery Information',
+    orderSummary: 'Order Summary',
+    browseProducts: 'Browse our collection',
+    allProducts: 'All Products',
+    items: 'items',
+    paymentMethod: 'Payment Method',
+    backToShop: 'Back to Catalog',
   },
   sr: {
-    shop: 'Prodavnica',
+    catalog: 'Katalog',
     products: 'Proizvodi',
-    addToOrder: 'Poruči',
+    addToOrder: 'Dodaj u korpu',
     outOfStock: 'Nema na stanju',
     currency: 'RSD',
     loading: 'Učitavanje...',
     shopNotFound: 'Prodavnica nije pronađena',
-    noProducts: 'Nema dostupnih proizvoda',
+    noProducts: 'Još nema proizvoda',
+    noProductsDesc: 'Vrati se uskoro po nove proizvode!',
     poweredBy: 'Powered by Narucify',
-    cart: 'Tvoja porudžbina',
-    emptyCart: 'Korpa je prazna',
     total: 'Ukupno',
     checkout: 'Završi porudžbinu',
-    yourDetails: 'Tvoji podaci',
     fullName: 'Ime i prezime',
     phone: 'Broj telefona',
-    address: 'Adresa',
+    address: 'Adresa za dostavu',
     city: 'Grad',
     postalCode: 'Poštanski broj',
     email: 'Email (opciono)',
-    paymentMethod: 'Način plaćanja',
     cashOnDelivery: 'Pouzeće',
     bankTransfer: 'Uplata na račun',
-    subscribePromo: 'Želim da primam promocije',
+    subscribePromo: 'Želim da primam promocije i specijalne ponude',
     confirmOrder: 'Potvrdi porudžbinu',
-    backToShop: 'Nazad u prodavnicu',
     orderSuccess: 'Porudžbina potvrđena!',
-    thankYou: 'Hvala na porudžbini',
+    thankYou: 'Hvala na porudžbini! Isporučujemo ti je što pre.',
     orderNumber: 'Broj tvoje porudžbine',
     trackOrder: 'Prati porudžbinu',
-    quantity: 'Kom',
-    remove: 'Ukloni',
     continueShopping: 'Nastavi kupovinu',
-    required: 'Obavezno'
+    addedToCart: 'Dodato u korpu!',
+    deliveryInfo: 'Podaci za dostavu',
+    orderSummary: 'Pregled porudžbine',
+    browseProducts: 'Pogledaj našu ponudu',
+    allProducts: 'Svi proizvodi',
+    items: 'artikala',
+    paymentMethod: 'Način plaćanja',
+    backToShop: 'Nazad u katalog',
   }
 };
 
+// ==================== THEME SYSTEM ====================
+const themes = {
+  elegance: {
+    name: 'Elegance',
+    bg: 'bg-stone-50',
+    headerBg: 'bg-white/80 backdrop-blur-xl border-b border-stone-200',
+    cardBg: 'bg-white',
+    cardBorder: 'border border-stone-200 hover:border-stone-300',
+    cardShadow: 'shadow-sm hover:shadow-lg',
+    textPrimary: 'text-stone-900',
+    textSecondary: 'text-stone-500',
+    textPrice: 'text-stone-900',
+    accent: 'bg-stone-900 text-white hover:bg-stone-800',
+    accentLight: 'bg-stone-100 text-stone-900',
+    badge: 'bg-stone-900 text-white',
+    badgeOutOfStock: 'bg-red-50 text-red-600 border border-red-200',
+    inputBg: 'bg-stone-50 border-stone-200 text-stone-900 focus:border-stone-400',
+    cartBg: 'bg-white border-t border-stone-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]',
+    heroBg: 'bg-gradient-to-br from-stone-100 via-stone-50 to-amber-50/30',
+    heroText: 'text-stone-900',
+    heroSub: 'text-stone-500',
+    sectionBg: 'bg-white/50',
+    checkoutBg: 'bg-stone-50',
+    successBg: 'bg-stone-50',
+    successCard: 'bg-white border border-stone-200',
+    divider: 'border-stone-200',
+    btnOutline: 'border-stone-300 text-stone-700 hover:bg-stone-100',
+    radioBox: 'bg-stone-50 border border-stone-200',
+    watermarkBg: 'bg-white/90 border-t border-stone-200',
+    watermarkText: 'text-stone-400',
+    emptyIcon: 'text-stone-300',
+    cartIcon: 'text-stone-900',
+    imgPlaceholder: 'bg-stone-100',
+  },
+  midnight: {
+    name: 'Midnight',
+    bg: 'bg-zinc-950',
+    headerBg: 'bg-zinc-900/90 backdrop-blur-xl border-b border-zinc-800',
+    cardBg: 'bg-zinc-900',
+    cardBorder: 'border border-zinc-800 hover:border-zinc-700',
+    cardShadow: 'shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30',
+    textPrimary: 'text-white',
+    textSecondary: 'text-zinc-400',
+    textPrice: 'text-violet-400',
+    accent: 'bg-violet-600 text-white hover:bg-violet-500',
+    accentLight: 'bg-violet-500/10 text-violet-400',
+    badge: 'bg-violet-600 text-white',
+    badgeOutOfStock: 'bg-red-500/20 text-red-400 border border-red-500/30',
+    inputBg: 'bg-zinc-800 border-zinc-700 text-white focus:border-violet-500',
+    cartBg: 'bg-zinc-900 border-t border-zinc-800 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]',
+    heroBg: 'bg-gradient-to-br from-zinc-900 via-violet-950/30 to-zinc-900',
+    heroText: 'text-white',
+    heroSub: 'text-zinc-400',
+    sectionBg: 'bg-zinc-900/50',
+    checkoutBg: 'bg-zinc-950',
+    successBg: 'bg-zinc-950',
+    successCard: 'bg-zinc-900 border border-zinc-800',
+    divider: 'border-zinc-800',
+    btnOutline: 'border-zinc-700 text-zinc-300 hover:bg-zinc-800',
+    radioBox: 'bg-zinc-800 border border-zinc-700',
+    watermarkBg: 'bg-zinc-900/90 border-t border-zinc-800',
+    watermarkText: 'text-zinc-500',
+    emptyIcon: 'text-zinc-600',
+    cartIcon: 'text-violet-400',
+    imgPlaceholder: 'bg-zinc-800',
+  },
+  sunset: {
+    name: 'Sunset',
+    bg: 'bg-orange-50/50',
+    headerBg: 'bg-white/80 backdrop-blur-xl border-b border-orange-100',
+    cardBg: 'bg-white',
+    cardBorder: 'border border-orange-100 hover:border-orange-300',
+    cardShadow: 'shadow-sm hover:shadow-lg hover:shadow-orange-100/50',
+    textPrimary: 'text-stone-800',
+    textSecondary: 'text-stone-500',
+    textPrice: 'text-orange-600',
+    accent: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600',
+    accentLight: 'bg-orange-50 text-orange-600',
+    badge: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white',
+    badgeOutOfStock: 'bg-red-50 text-red-500 border border-red-200',
+    inputBg: 'bg-orange-50/50 border-orange-200 text-stone-800 focus:border-orange-400',
+    cartBg: 'bg-white border-t border-orange-100 shadow-[0_-4px_20px_rgba(249,115,22,0.08)]',
+    heroBg: 'bg-gradient-to-br from-orange-100 via-rose-50 to-amber-50',
+    heroText: 'text-stone-800',
+    heroSub: 'text-stone-500',
+    sectionBg: 'bg-white/60',
+    checkoutBg: 'bg-orange-50/30',
+    successBg: 'bg-orange-50/30',
+    successCard: 'bg-white border border-orange-100',
+    divider: 'border-orange-100',
+    btnOutline: 'border-orange-200 text-stone-700 hover:bg-orange-50',
+    radioBox: 'bg-orange-50/50 border border-orange-200',
+    watermarkBg: 'bg-white/90 border-t border-orange-100',
+    watermarkText: 'text-stone-400',
+    emptyIcon: 'text-orange-200',
+    cartIcon: 'text-orange-500',
+    imgPlaceholder: 'bg-orange-50',
+  },
+  nature: {
+    name: 'Nature',
+    bg: 'bg-emerald-50/30',
+    headerBg: 'bg-white/80 backdrop-blur-xl border-b border-emerald-100',
+    cardBg: 'bg-white',
+    cardBorder: 'border border-emerald-100 hover:border-emerald-300',
+    cardShadow: 'shadow-sm hover:shadow-lg hover:shadow-emerald-100/50',
+    textPrimary: 'text-stone-800',
+    textSecondary: 'text-stone-500',
+    textPrice: 'text-emerald-600',
+    accent: 'bg-emerald-600 text-white hover:bg-emerald-500',
+    accentLight: 'bg-emerald-50 text-emerald-700',
+    badge: 'bg-emerald-600 text-white',
+    badgeOutOfStock: 'bg-red-50 text-red-500 border border-red-200',
+    inputBg: 'bg-emerald-50/30 border-emerald-200 text-stone-800 focus:border-emerald-400',
+    cartBg: 'bg-white border-t border-emerald-100 shadow-[0_-4px_20px_rgba(16,185,129,0.08)]',
+    heroBg: 'bg-gradient-to-br from-emerald-100 via-teal-50 to-green-50',
+    heroText: 'text-stone-800',
+    heroSub: 'text-stone-500',
+    sectionBg: 'bg-white/60',
+    checkoutBg: 'bg-emerald-50/20',
+    successBg: 'bg-emerald-50/20',
+    successCard: 'bg-white border border-emerald-100',
+    divider: 'border-emerald-100',
+    btnOutline: 'border-emerald-200 text-stone-700 hover:bg-emerald-50',
+    radioBox: 'bg-emerald-50/50 border border-emerald-200',
+    watermarkBg: 'bg-white/90 border-t border-emerald-100',
+    watermarkText: 'text-stone-400',
+    emptyIcon: 'text-emerald-200',
+    cartIcon: 'text-emerald-600',
+    imgPlaceholder: 'bg-emerald-50',
+  },
+  ocean: {
+    name: 'Ocean',
+    bg: 'bg-slate-900',
+    headerBg: 'bg-slate-800/90 backdrop-blur-xl border-b border-slate-700/50',
+    cardBg: 'bg-slate-800/80',
+    cardBorder: 'border border-slate-700/50 hover:border-cyan-500/30',
+    cardShadow: 'shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-cyan-500/10',
+    textPrimary: 'text-white',
+    textSecondary: 'text-slate-400',
+    textPrice: 'text-cyan-400',
+    accent: 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500',
+    accentLight: 'bg-cyan-500/10 text-cyan-400',
+    badge: 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white',
+    badgeOutOfStock: 'bg-red-500/20 text-red-400 border border-red-500/30',
+    inputBg: 'bg-slate-700/50 border-slate-600 text-white focus:border-cyan-500',
+    cartBg: 'bg-slate-800 border-t border-slate-700/50 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]',
+    heroBg: 'bg-gradient-to-br from-slate-800 via-cyan-950/40 to-blue-950/30',
+    heroText: 'text-white',
+    heroSub: 'text-slate-400',
+    sectionBg: 'bg-slate-800/30',
+    checkoutBg: 'bg-slate-900',
+    successBg: 'bg-slate-900',
+    successCard: 'bg-slate-800 border border-slate-700/50',
+    divider: 'border-slate-700/50',
+    btnOutline: 'border-slate-600 text-slate-300 hover:bg-slate-700',
+    radioBox: 'bg-slate-700/50 border border-slate-600',
+    watermarkBg: 'bg-slate-800/90 border-t border-slate-700/50',
+    watermarkText: 'text-slate-500',
+    emptyIcon: 'text-slate-600',
+    cartIcon: 'text-cyan-400',
+    imgPlaceholder: 'bg-slate-700',
+  },
+  minimal: {
+    name: 'Minimal',
+    bg: 'bg-white',
+    headerBg: 'bg-white/80 backdrop-blur-xl border-b border-neutral-100',
+    cardBg: 'bg-white',
+    cardBorder: 'border-0',
+    cardShadow: 'hover:shadow-md',
+    textPrimary: 'text-neutral-900',
+    textSecondary: 'text-neutral-400',
+    textPrice: 'text-neutral-900',
+    accent: 'bg-neutral-900 text-white hover:bg-neutral-800',
+    accentLight: 'bg-neutral-100 text-neutral-900',
+    badge: 'bg-neutral-900 text-white',
+    badgeOutOfStock: 'bg-neutral-100 text-neutral-500 border border-neutral-200',
+    inputBg: 'bg-neutral-50 border-neutral-200 text-neutral-900 focus:border-neutral-400',
+    cartBg: 'bg-white border-t border-neutral-100 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]',
+    heroBg: 'bg-neutral-50',
+    heroText: 'text-neutral-900',
+    heroSub: 'text-neutral-400',
+    sectionBg: 'bg-neutral-50/50',
+    checkoutBg: 'bg-white',
+    successBg: 'bg-white',
+    successCard: 'bg-neutral-50 border border-neutral-100',
+    divider: 'border-neutral-100',
+    btnOutline: 'border-neutral-200 text-neutral-700 hover:bg-neutral-50',
+    radioBox: 'bg-neutral-50 border border-neutral-200',
+    watermarkBg: 'bg-white/90 border-t border-neutral-100',
+    watermarkText: 'text-neutral-300',
+    emptyIcon: 'text-neutral-200',
+    cartIcon: 'text-neutral-900',
+    imgPlaceholder: 'bg-neutral-50',
+  }
+};
+
+// Export themes for use in SettingsPage
+export { themes };
+
+// ==================== COMPONENT ====================
 export default function MiniShopPage() {
   const { shopId } = useParams();
   const [language, setLanguage] = useState(() => {
@@ -117,6 +318,8 @@ export default function MiniShopPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [addedProductId, setAddedProductId] = useState(null);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -129,7 +332,8 @@ export default function MiniShopPage() {
     subscribe_promo: false
   });
 
-  const t = (key) => translations[language][key] || key;
+  const t = (key) => translations[language]?.[key] || key;
+  const theme = themes[shop?.shop_theme] || themes.elegance;
 
   useEffect(() => {
     localStorage.setItem('dm-order-public-lang', language);
@@ -169,12 +373,14 @@ export default function MiniShopPage() {
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
-    toast.success(language === 'sr' ? 'Dodato u korpu' : 'Added to cart');
+    setAddedProductId(product.id);
+    setTimeout(() => setAddedProductId(null), 1500);
+    toast.success(t('addedToCart'));
   };
 
   const updateQuantity = (productId, delta) => {
     const product = shop.products.find(p => p.id === productId);
-    setCart(cart.map(item => {
+    setCart(prev => prev.map(item => {
       if (item.id === productId) {
         const newQty = Math.max(1, Math.min(product?.stock || 99, item.quantity + delta));
         return { ...item, quantity: newQty };
@@ -184,32 +390,24 @@ export default function MiniShopPage() {
   };
 
   const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.id !== productId));
+    setCart(prev => prev.filter(item => item.id !== productId));
   };
 
-  const getTotal = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+  const getTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const getItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
-    
     if (!formData.full_name || !formData.phone || !formData.address || !formData.city) {
       toast.error(language === 'sr' ? 'Popuni sva obavezna polja' : 'Fill all required fields');
       return;
     }
-
     setSubmitting(true);
     try {
-      // First create the order via public shop endpoint
       const orderResponse = await axios.post(`${API_URL}/public/shop/${shopId}/order`, {
-        items: cart.map(item => ({
-          product_id: item.id,
-          quantity: item.quantity
-        })),
+        items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
         customer: formData
       });
-
       setOrderSuccess(orderResponse.data);
       setCart([]);
     } catch (err) {
@@ -220,426 +418,439 @@ export default function MiniShopPage() {
     }
   };
 
+  // ==================== LOADING ====================
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-zinc-400">{t('loading')}</p>
+          <div className="w-12 h-12 rounded-full border-2 border-stone-200 border-t-stone-900 animate-spin mx-auto mb-4" />
+          <p className="text-stone-400 text-sm">{t('loading')}</p>
         </div>
       </div>
     );
   }
 
+  // ==================== ERROR ====================
   if (error) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-6 text-center">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h1 className="text-xl font-bold text-white mb-2">{t(error)}</h1>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Order Success View
-  if (orderSuccess) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-zinc-900 border-zinc-800">
-          <CardContent className="pt-8 pb-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-green-500" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">{t('orderSuccess')}</h1>
-            <p className="text-zinc-400 mb-4">{t('thankYou')}</p>
-            <div className="p-4 rounded-lg bg-zinc-800 mb-6">
-              <p className="text-sm text-zinc-400">{t('orderNumber')}</p>
-              <p className="text-xl font-bold text-primary font-mono">{orderSuccess.order_number}</p>
-            </div>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline"
-                className="flex-1 border-zinc-700"
-                onClick={() => {
-                  setOrderSuccess(null);
-                  setShowCheckout(false);
-                }}
-              >
-                {t('continueShopping')}
-              </Button>
-              <Button 
-                className="flex-1 primary-gradient"
-                onClick={() => window.location.href = `/track/${orderSuccess.tracking_id}`}
-              >
-                {t('trackOrder')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-red-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-stone-900 mb-2">{t(error)}</h1>
+        </div>
       </div>
     );
   }
 
   const showWatermark = !shop?.is_pro;
 
-  // Checkout View
+  // ==================== ORDER SUCCESS ====================
+  if (orderSuccess) {
+    return (
+      <div className={`min-h-screen ${theme.successBg} flex items-center justify-center p-4`}>
+        <div className={`max-w-md w-full ${theme.successCard} rounded-2xl p-8 text-center`}>
+          <div className="relative mx-auto mb-6 w-20 h-20">
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto animate-bounce-in">
+              <Check className="w-10 h-10 text-green-600" />
+            </div>
+            <Sparkles className="w-6 h-6 text-amber-400 absolute -top-1 -right-1 animate-pulse" />
+          </div>
+          <h1 className={`text-2xl font-bold ${theme.textPrimary} mb-2`}>{t('orderSuccess')}</h1>
+          <p className={`${theme.textSecondary} mb-6`}>{t('thankYou')}</p>
+          <div className={`p-5 rounded-xl ${theme.sectionBg} border ${theme.divider} mb-6`}>
+            <p className={`text-sm ${theme.textSecondary} mb-1`}>{t('orderNumber')}</p>
+            <p className={`text-2xl font-bold ${theme.textPrimary} font-mono tracking-wider`}>
+              {orderSuccess.order_number}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              className={`flex-1 h-12 rounded-xl ${theme.btnOutline}`}
+              onClick={() => { setOrderSuccess(null); setShowCheckout(false); }}
+            >
+              {t('continueShopping')}
+            </Button>
+            <Button 
+              className={`flex-1 h-12 rounded-xl ${theme.accent}`}
+              onClick={() => window.location.href = `/track/${orderSuccess.tracking_id}`}
+            >
+              {t('trackOrder')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== CHECKOUT ====================
   if (showCheckout && cart.length > 0) {
     return (
-      <div className="min-h-screen bg-zinc-950" data-testid="checkout-page">
-        <header className="sticky top-0 z-50 bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-4 py-4">
+      <div className={`min-h-screen ${theme.checkoutBg}`} data-testid="checkout-page">
+        <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-4`}>
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             <Button 
-              variant="ghost" 
-              size="icon"
+              variant="ghost" size="icon"
               onClick={() => setShowCheckout(false)}
-              className="text-zinc-400 hover:text-white"
+              className={`${theme.textSecondary} rounded-full`}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="font-bold text-white">{t('checkout')}</h1>
+            <h1 className={`font-bold ${theme.textPrimary}`}>{t('backToShop')}</h1>
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto p-4 pb-24">
-          <form onSubmit={handleSubmitOrder} className="space-y-6">
+        <main className="max-w-2xl mx-auto p-4 pb-8">
+          <form onSubmit={handleSubmitOrder} className="space-y-5">
+
             {/* Order Summary */}
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-4">
-                <h2 className="font-semibold text-white mb-4">{t('cart')}</h2>
-                <div className="space-y-3">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-3">
+            <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} overflow-hidden`}>
+              <div className={`px-5 py-4 border-b ${theme.divider}`}>
+                <h2 className={`font-semibold ${theme.textPrimary} flex items-center gap-2`}>
+                  <ShoppingCart className="w-4 h-4" />
+                  {t('orderSummary')}
+                </h2>
+              </div>
+              <div className="p-5 space-y-4">
+                {cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-xl overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded object-cover" />
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-12 h-12 rounded bg-zinc-800 flex items-center justify-center">
-                          <Package className="w-6 h-6 text-zinc-600" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className={`w-6 h-6 ${theme.emptyIcon}`} />
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white truncate">{item.name}</p>
-                        <p className="text-sm text-zinc-400">{item.quantity} x {formatCurrency(item.price)}</p>
-                      </div>
-                      <p className="font-semibold text-primary">{formatCurrency(item.price * item.quantity)}</p>
                     </div>
-                  ))}
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium ${theme.textPrimary} truncate`}>{item.name}</p>
+                      <p className={`text-sm ${theme.textSecondary}`}>{item.quantity} × {formatCurrency(item.price)}</p>
+                    </div>
+                    <p className={`font-semibold ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
+                  </div>
+                ))}
+                <div className={`pt-4 border-t ${theme.divider} flex justify-between items-center`}>
+                  <span className={`font-semibold ${theme.textPrimary}`}>{t('total')}</span>
+                  <span className={`text-2xl font-bold ${theme.textPrice}`}>{formatCurrency(getTotal())}</span>
                 </div>
-                <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
-                  <span className="font-semibold text-white">{t('total')}</span>
-                  <span className="text-2xl font-bold text-primary">{formatCurrency(getTotal())}</span>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Customer Details */}
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-4 space-y-4">
-                <h2 className="font-semibold text-white flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  {t('yourDetails')}
+            {/* Delivery Details */}
+            <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} overflow-hidden`}>
+              <div className={`px-5 py-4 border-b ${theme.divider}`}>
+                <h2 className={`font-semibold ${theme.textPrimary} flex items-center gap-2`}>
+                  <MapPin className="w-4 h-4" />
+                  {t('deliveryInfo')}
                 </h2>
-                
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">{t('fullName')} *</Label>
-                  <Input 
-                    value={formData.full_name}
-                    onChange={e => setFormData({...formData, full_name: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                    required
-                  />
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label className={`text-sm ${theme.textSecondary}`}>{t('fullName')} *</Label>
+                  <Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} required />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">{t('phone')} *</Label>
-                  <Input 
-                    type="tel"
-                    value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                    required
-                  />
+                <div className="space-y-1.5">
+                  <Label className={`text-sm ${theme.textSecondary}`}>{t('phone')} *</Label>
+                  <Input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} required />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">{t('address')} *</Label>
-                  <Input 
-                    value={formData.address}
-                    onChange={e => setFormData({...formData, address: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                    required
-                  />
+                <div className="space-y-1.5">
+                  <Label className={`text-sm ${theme.textSecondary}`}>{t('address')} *</Label>
+                  <Input value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} required />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">{t('city')} *</Label>
-                    <Input 
-                      value={formData.city}
-                      onChange={e => setFormData({...formData, city: e.target.value})}
-                      className="bg-zinc-800 border-zinc-700 text-white"
-                      required
-                    />
+                  <div className="space-y-1.5">
+                    <Label className={`text-sm ${theme.textSecondary}`}>{t('city')} *</Label>
+                    <Input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} required />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">{t('postalCode')}</Label>
-                    <Input 
-                      value={formData.postal_code}
-                      onChange={e => setFormData({...formData, postal_code: e.target.value})}
-                      className="bg-zinc-800 border-zinc-700 text-white"
-                    />
+                  <div className="space-y-1.5">
+                    <Label className={`text-sm ${theme.textSecondary}`}>{t('postalCode')}</Label>
+                    <Input value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} />
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-zinc-400">{t('email')}</Label>
-                  <Input 
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
+                <div className="space-y-1.5">
+                  <Label className={`text-sm ${theme.textSecondary}`}>{t('email')}</Label>
+                  <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={`${theme.inputBg} h-11 rounded-xl`} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Payment Method */}
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-4 space-y-4">
-                <h2 className="font-semibold text-white flex items-center gap-2">
+            {/* Payment */}
+            <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} overflow-hidden`}>
+              <div className={`px-5 py-4 border-b ${theme.divider}`}>
+                <h2 className={`font-semibold ${theme.textPrimary} flex items-center gap-2`}>
                   <CreditCard className="w-4 h-4" />
                   {t('paymentMethod')}
                 </h2>
-                
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="payment" 
-                      value="cash_on_delivery"
-                      checked={formData.payment_method === 'cash_on_delivery'}
-                      onChange={e => setFormData({...formData, payment_method: e.target.value})}
-                      className="text-primary"
-                    />
-                    <span className="text-white">{t('cashOnDelivery')}</span>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="payment" 
-                      value="bank_transfer"
-                      checked={formData.payment_method === 'bank_transfer'}
-                      onChange={e => setFormData({...formData, payment_method: e.target.value})}
-                      className="text-primary"
-                    />
-                    <span className="text-white">{t('bankTransfer')}</span>
-                  </label>
-                </div>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <Checkbox 
-                    checked={formData.subscribe_promo}
-                    onCheckedChange={checked => setFormData({...formData, subscribe_promo: checked})}
-                  />
-                  <span className="text-sm text-zinc-400">{t('subscribePromo')}</span>
+              </div>
+              <div className="p-5 space-y-3">
+                <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all ${theme.radioBox} ${formData.payment_method === 'cash_on_delivery' ? 'ring-2 ring-offset-1 ring-black/10' : ''}`}>
+                  <input type="radio" name="payment" value="cash_on_delivery" checked={formData.payment_method === 'cash_on_delivery'} onChange={e => setFormData({...formData, payment_method: e.target.value})} className="accent-neutral-900" />
+                  <span className={theme.textPrimary}>{t('cashOnDelivery')}</span>
                 </label>
-              </CardContent>
-            </Card>
+                <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all ${theme.radioBox} ${formData.payment_method === 'bank_transfer' ? 'ring-2 ring-offset-1 ring-black/10' : ''}`}>
+                  <input type="radio" name="payment" value="bank_transfer" checked={formData.payment_method === 'bank_transfer'} onChange={e => setFormData({...formData, payment_method: e.target.value})} className="accent-neutral-900" />
+                  <span className={theme.textPrimary}>{t('bankTransfer')}</span>
+                </label>
+                <label className="flex items-center gap-3 pt-3 cursor-pointer">
+                  <Checkbox checked={formData.subscribe_promo} onCheckedChange={checked => setFormData({...formData, subscribe_promo: checked})} />
+                  <span className={`text-sm ${theme.textSecondary}`}>{t('subscribePromo')}</span>
+                </label>
+              </div>
+            </div>
 
-            <Button 
-              type="submit"
-              className="w-full primary-gradient h-12 text-lg"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  {t('confirmOrder')}
-                </>
+            <Button type="submit" className={`w-full h-14 text-lg rounded-xl ${theme.accent} font-semibold`} disabled={submitting}>
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <><Check className="w-5 h-5 mr-2" />{t('confirmOrder')} — {formatCurrency(getTotal())}</>
               )}
             </Button>
           </form>
         </main>
 
         {showWatermark && (
-          <div className="fixed bottom-0 left-0 right-0 bg-zinc-900/90 backdrop-blur border-t border-zinc-800 py-2 text-center">
-            <span className="text-xs text-zinc-500">{t('poweredBy')}</span>
+          <div className={`${theme.watermarkBg} py-2 text-center`}>
+            <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
           </div>
         )}
       </div>
     );
   }
 
-  // Main Shop View
+  // ==================== MAIN CATALOG ====================
   return (
-    <div className="min-h-screen bg-zinc-950" data-testid="mini-shop-page">
+    <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-3`}>
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {shop?.logo_url ? (
-              <img 
-                src={shop.logo_url} 
-                alt={shop.seller_name}
-                className="w-10 h-10 rounded-lg object-cover"
-              />
+              <img src={shop.logo_url} alt={shop.seller_name} className="w-10 h-10 rounded-xl object-cover ring-2 ring-black/5" />
             ) : (
-              <div className="w-10 h-10 rounded-lg primary-gradient flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-xl ${theme.accent} flex items-center justify-center`}>
                 <ShoppingBag className="w-5 h-5 text-white" />
               </div>
             )}
             <div>
-              <h1 className="font-bold text-white flex items-center gap-2">
+              <h1 className={`font-bold ${theme.textPrimary} flex items-center gap-2`}>
                 {shop?.seller_name}
-                {shop?.is_pro && (
-                  <Crown className="w-4 h-4 text-amber-500" />
-                )}
+                {shop?.is_pro && <Crown className="w-4 h-4 text-amber-500" />}
               </h1>
-              <p className="text-xs text-zinc-400">{t('shop')}</p>
+              <p className={`text-xs ${theme.textSecondary}`}>{t('catalog')}</p>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')}
-            className="gap-2 text-zinc-400 hover:text-white"
-          >
-            <Globe className="w-4 h-4" />
-            {language.toUpperCase()}
-          </Button>
+          <div className="flex items-center gap-2">
+            {cart.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setCartOpen(!cartOpen)} className={`relative ${theme.textPrimary} rounded-full`}>
+                <ShoppingCart className="w-5 h-5" />
+                <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
+                  {getItemCount()}
+                </span>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')} className={`${theme.textSecondary} rounded-full`}>
+              <Globe className="w-4 h-4 mr-1" />
+              {language.toUpperCase()}
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 pb-32">
-        {/* Products Grid */}
+      {/* Hero Banner */}
+      <div className={`${theme.heroBg} px-4 py-12 md:py-16`}>
+        <div className="max-w-5xl mx-auto text-center">
+          {shop?.shop_banner_url && (
+            <div className="mb-6 rounded-2xl overflow-hidden max-h-48 md:max-h-64">
+              <img src={shop.shop_banner_url} alt="" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <h2 className={`text-3xl md:text-4xl font-bold ${theme.heroText} mb-3`}>
+            {shop?.seller_name}
+          </h2>
+          <p className={`${theme.heroSub} max-w-lg mx-auto text-base md:text-lg`}>
+            {shop?.shop_description || t('browseProducts')}
+          </p>
+          <div className="mt-6">
+            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight}`}>
+              <Package className="w-4 h-4" />
+              {shop?.products?.length || 0} {t('products').toLowerCase()}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Products */}
+      <main className="max-w-5xl mx-auto px-4 py-8 pb-32">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className={`text-lg font-semibold ${theme.textPrimary}`}>{t('allProducts')}</h3>
+        </div>
+
         {shop?.products?.length === 0 ? (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <Package className="w-16 h-16 text-zinc-600 mb-4" />
-              <p className="text-xl font-medium text-white mb-2">{t('noProducts')}</p>
-            </CardContent>
-          </Card>
+          <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} ${theme.cardShadow}`}>
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className={`w-24 h-24 rounded-full ${theme.imgPlaceholder} flex items-center justify-center mb-6`}>
+                <Package className={`w-12 h-12 ${theme.emptyIcon}`} />
+              </div>
+              <p className={`text-xl font-medium ${theme.textPrimary} mb-2`}>{t('noProducts')}</p>
+              <p className={theme.textSecondary}>{t('noProductsDesc')}</p>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
             {shop?.products?.map((product, index) => {
               const inCart = cart.find(item => item.id === product.id);
+              const justAdded = addedProductId === product.id;
               return (
-                <Card 
+                <div
                   key={product.id}
-                  className="overflow-hidden bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
+                  className={`group rounded-2xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300`}
+                  style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
                 >
-                  <div className="aspect-square bg-zinc-800 relative overflow-hidden">
+                  {/* Image */}
+                  <div className="relative aspect-square overflow-hidden">
                     {product.image_url ? (
-                      <img 
-                        src={product.image_url} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-12 h-12 text-zinc-600" />
+                      <div className={`w-full h-full ${theme.imgPlaceholder} flex items-center justify-center`}>
+                        <Package className={`w-12 h-12 ${theme.emptyIcon}`} />
                       </div>
                     )}
                     {product.stock <= 0 && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <Badge variant="destructive">{t('outOfStock')}</Badge>
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
+                        <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${theme.badgeOutOfStock}`}>{t('outOfStock')}</span>
                       </div>
                     )}
                     {inCart && (
-                      <Badge className="absolute top-2 right-2 bg-primary border-0">
+                      <div className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-full ${theme.badge} flex items-center justify-center text-xs font-bold shadow-lg`}>
                         {inCart.quantity}
-                      </Badge>
+                      </div>
+                    )}
+                    {justAdded && (
+                      <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center pointer-events-none">
+                        <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center animate-ping-once">
+                          <Check className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <CardContent className="p-3">
-                    <h3 className="font-medium text-white truncate text-sm" title={product.name}>
+
+                  {/* Info */}
+                  <div className="p-3.5">
+                    <h3 className={`font-medium ${theme.textPrimary} text-sm leading-tight mb-1.5 line-clamp-2`} title={product.name}>
                       {product.name}
                     </h3>
-                    <p className="text-lg font-bold text-primary mt-1">
-                      {formatCurrency(product.price)}
-                    </p>
-                    {inCart ? (
-                      <div className="flex items-center gap-2 mt-3">
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="h-9 w-9 p-0 border-zinc-700"
-                          onClick={() => updateQuantity(product.id, -1)}
-                        >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                        <span className="flex-1 text-center text-white font-medium">{inCart.quantity}</span>
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="h-9 w-9 p-0 border-zinc-700"
-                          onClick={() => updateQuantity(product.id, 1)}
-                          disabled={inCart.quantity >= product.stock}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="ghost"
-                          className="h-9 w-9 p-0 text-red-400 hover:text-red-300"
-                          onClick={() => removeFromCart(product.id)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button 
-                        className="w-full mt-3 primary-gradient hover:opacity-90 gap-2"
-                        size="sm"
-                        disabled={product.stock <= 0}
-                        onClick={() => addToCart(product)}
-                      >
-                        <Plus className="w-4 h-4" />
-                        {t('addToOrder')}
-                      </Button>
+                    {product.description && (
+                      <p className={`text-xs ${theme.textSecondary} line-clamp-2 mb-2`}>{product.description}</p>
                     )}
-                  </CardContent>
-                </Card>
+                    <p className={`text-lg font-bold ${theme.textPrice}`}>{formatCurrency(product.price)}</p>
+
+                    <div className="mt-3">
+                      {inCart ? (
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 rounded-lg ${theme.btnOutline}`}
+                            onClick={() => { inCart.quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, -1); }}>
+                            {inCart.quantity <= 1 ? <X className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                          </Button>
+                          <span className={`flex-1 text-center ${theme.textPrimary} font-semibold text-sm`}>{inCart.quantity}</span>
+                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 rounded-lg ${theme.btnOutline}`}
+                            onClick={() => updateQuantity(product.id, 1)} disabled={inCart.quantity >= product.stock}>
+                            <Plus className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button className={`w-full rounded-lg h-9 text-sm ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
+                          <Plus className="w-3.5 h-3.5" />
+                          {t('addToOrder')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
       </main>
 
-      {/* Cart Footer */}
+      {/* Floating Cart Bar */}
       {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 p-4 z-50">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div>
-              <p className="text-sm text-zinc-400">{cart.reduce((sum, item) => sum + item.quantity, 0)} {language === 'sr' ? 'artikala' : 'items'}</p>
-              <p className="text-xl font-bold text-white">{formatCurrency(getTotal())}</p>
+        <div className={`fixed bottom-0 left-0 right-0 z-50 ${theme.cartBg}`}>
+          {cartOpen && (
+            <div className={`border-b ${theme.divider} max-h-64 overflow-y-auto`}>
+              <div className="max-w-5xl mx-auto p-4 space-y-3">
+                {cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
+                      {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : (
+                        <div className="w-full h-full flex items-center justify-center"><Package className={`w-4 h-4 ${theme.emptyIcon}`} /></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium text-sm ${theme.textPrimary} truncate`}>{item.name}</p>
+                      <p className={`text-xs ${theme.textSecondary}`}>{item.quantity} × {formatCurrency(item.price)}</p>
+                    </div>
+                    <p className={`font-semibold text-sm ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 rounded-full" onClick={() => removeFromCart(item.id)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
-            <Button 
-              className="primary-gradient px-8"
-              onClick={() => setShowCheckout(true)}
-            >
+          )}
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <button onClick={() => setCartOpen(!cartOpen)} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
+              <div className="relative">
+                <ShoppingCart className={`w-6 h-6 ${theme.cartIcon}`} />
+                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
+                  {getItemCount()}
+                </span>
+              </div>
+              <div className="text-left">
+                <p className={`text-sm ${theme.textSecondary}`}>{getItemCount()} {t('items')}</p>
+                <p className={`text-lg font-bold ${theme.textPrimary}`}>{formatCurrency(getTotal())}</p>
+              </div>
+              <ChevronUp className={`w-4 h-4 ${theme.textSecondary} transition-transform ${cartOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <Button className={`${theme.accent} px-8 h-12 rounded-xl text-base font-semibold`} onClick={() => setShowCheckout(true)}>
               {t('checkout')}
             </Button>
           </div>
         </div>
       )}
 
-      {/* Watermark - Only show if not PRO and no cart */}
+      {/* Watermark */}
       {showWatermark && cart.length === 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-900/90 backdrop-blur border-t border-zinc-800 py-2 text-center">
-          <a 
-            href="/" 
-            className="text-xs text-zinc-500 hover:text-zinc-400 transition-colors"
-          >
-            {t('poweredBy')}
-          </a>
+        <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
+          <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
         </div>
       )}
+
+      <style>{`
+        @keyframes catalogFadeIn {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes bounceIn {
+          0% { transform: scale(0); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        .animate-bounce-in { animation: bounceIn 0.5s ease-out; }
+        @keyframes pingOnce {
+          0% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+        .animate-ping-once { animation: pingOnce 0.6s ease-out; }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   );
 }

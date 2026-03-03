@@ -49,6 +49,7 @@ import {
   Trophy
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
+import { themes } from './MiniShopPage';
 import '../styles/premium.css';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -62,6 +63,9 @@ export default function SettingsPage() {
   const [shopProducts, setShopProducts] = useState([]);
   const [loadingShopProducts, setLoadingShopProducts] = useState(true);
   const [celebrationBadge, setCelebrationBadge] = useState(null);
+  const [currentTheme, setCurrentTheme] = useState(user?.shop_theme || 'elegance');
+  const [shopDescription, setShopDescription] = useState(user?.shop_description || '');
+  const [savingTheme, setSavingTheme] = useState(false);
 
   useEffect(() => {
     fetchShopProducts();
@@ -468,6 +472,65 @@ export default function SettingsPage() {
 
   const shopLink = `${window.location.origin}/shop/${user?.id}`;
 
+  const saveShopTheme = async (themeKey) => {
+    setCurrentTheme(themeKey);
+    setSavingTheme(true);
+    try {
+      await axios.put(`${API_URL}/auth/profile`, { shop_theme: themeKey });
+      toast.success(language === 'sr' ? 'Tema sačuvana!' : 'Theme saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving theme:', error);
+      toast.error(language === 'sr' ? 'Greška pri čuvanju teme' : 'Error saving theme');
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
+  const saveShopDescription = async () => {
+    try {
+      await axios.put(`${API_URL}/auth/profile`, { shop_description: shopDescription });
+      toast.success(language === 'sr' ? 'Opis sačuvan!' : 'Description saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving description:', error);
+      toast.error(language === 'sr' ? 'Greška' : 'Error');
+    }
+  };
+
+  const themeDisplayInfo = {
+    elegance: { 
+      label: 'Elegance', 
+      desc: language === 'sr' ? 'Elegantan svetao dizajn' : 'Elegant light design',
+      preview: ['bg-stone-50', 'bg-stone-900', 'bg-stone-200']
+    },
+    midnight: { 
+      label: 'Midnight', 
+      desc: language === 'sr' ? 'Tamna tema sa ljubičastim akcentom' : 'Dark theme with violet accent',
+      preview: ['bg-zinc-950', 'bg-violet-600', 'bg-zinc-800']
+    },
+    sunset: { 
+      label: 'Sunset', 
+      desc: language === 'sr' ? 'Topli narandžasto-roze tonovi' : 'Warm orange-pink tones',
+      preview: ['bg-orange-50', 'bg-gradient-to-r from-orange-500 to-rose-500', 'bg-orange-100']
+    },
+    nature: { 
+      label: 'Nature', 
+      desc: language === 'sr' ? 'Sveži zeleni tonovi' : 'Fresh green tones',
+      preview: ['bg-emerald-50', 'bg-emerald-600', 'bg-emerald-100']
+    },
+    ocean: { 
+      label: 'Ocean', 
+      desc: language === 'sr' ? 'Tamna tema sa plavim akcentom' : 'Dark theme with cyan accent',
+      preview: ['bg-slate-900', 'bg-gradient-to-r from-cyan-500 to-blue-600', 'bg-slate-700']
+    },
+    minimal: { 
+      label: 'Minimal', 
+      desc: language === 'sr' ? 'Čist minimalistički dizajn' : 'Clean minimalist design',
+      preview: ['bg-white', 'bg-neutral-900', 'bg-neutral-100']
+    },
+  };
+
   return (
     <Layout>
       <div className="space-y-8 max-w-6xl" data-testid="settings-page">
@@ -685,6 +748,65 @@ export default function SettingsPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Shop Description */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
+                <Palette className="w-4 h-4" />
+                {language === 'sr' ? 'Opis prodavnice' : 'Shop Description'}
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={shopDescription}
+                  onChange={e => setShopDescription(e.target.value)}
+                  placeholder={language === 'sr' ? 'Npr. Najbolji ručno pravljeni nakit...' : 'E.g. Best handmade jewelry...'}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                  maxLength={500}
+                />
+                <Button onClick={saveShopDescription} className="primary-gradient px-4">
+                  <Check className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-zinc-500 mt-1">
+                {language === 'sr' ? 'Prikazuje se na vrhu tvog kataloga' : 'Shown at the top of your catalog'}
+              </p>
+            </div>
+
+            {/* Theme Picker */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
+                <Palette className="w-4 h-4" />
+                {language === 'sr' ? 'Tema kataloga' : 'Catalog Theme'}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {Object.entries(themeDisplayInfo).map(([key, info]) => (
+                  <button
+                    key={key}
+                    onClick={() => saveShopTheme(key)}
+                    disabled={savingTheme}
+                    className={`relative p-3 rounded-xl border-2 transition-all text-left ${
+                      currentTheme === key 
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
+                        : 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                    }`}
+                  >
+                    {currentTheme === key && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {/* Mini preview */}
+                    <div className="flex gap-1 mb-2">
+                      <div className={`w-8 h-8 rounded-md ${info.preview[0]} border border-zinc-600/30`} />
+                      <div className={`w-8 h-8 rounded-md ${info.preview[1]}`} />
+                      <div className={`w-8 h-8 rounded-md ${info.preview[2]} border border-zinc-600/30`} />
+                    </div>
+                    <p className="font-medium text-white text-sm">{info.label}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{info.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

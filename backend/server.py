@@ -253,6 +253,9 @@ class UpdateUserFeatures(BaseModel):
 class UpdateUserProfile(BaseModel):
     logo_url: Optional[str] = None
     default_delivery_days: Optional[int] = None
+    shop_theme: Optional[str] = None
+    shop_description: Optional[str] = None
+    shop_banner_url: Optional[str] = None
 
 class ProductCreate(BaseModel):
     name: str
@@ -713,6 +716,14 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         update_data["logo_url"] = data.logo_url
     if data.default_delivery_days is not None:
         update_data["default_delivery_days"] = data.default_delivery_days
+    if data.shop_theme is not None:
+        valid_themes = ["elegance", "midnight", "sunset", "nature", "ocean", "minimal"]
+        if data.shop_theme in valid_themes:
+            update_data["shop_theme"] = data.shop_theme
+    if data.shop_description is not None:
+        update_data["shop_description"] = data.shop_description[:500]
+    if data.shop_banner_url is not None:
+        update_data["shop_banner_url"] = data.shop_banner_url
     
     if update_data:
         await db.users.update_one({"id": user["id"]}, {"$set": update_data})
@@ -1047,6 +1058,9 @@ async def get_public_shop(user_id: str):
         "seller_name": seller["business_name"],
         "logo_url": seller.get("logo_url"),
         "is_pro": seller.get("is_pro", False),
+        "shop_theme": seller.get("shop_theme", "elegance"),
+        "shop_description": seller.get("shop_description", ""),
+        "shop_banner_url": seller.get("shop_banner_url", ""),
         "products": products
     }
 
