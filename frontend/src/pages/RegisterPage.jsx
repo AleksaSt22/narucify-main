@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -8,15 +8,24 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
 import { Mail, Lock, Building2, Loader2 } from 'lucide-react';
+import axios from 'axios';
+
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [backendReady, setBackendReady] = useState(false);
   const { register } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  // Wake up backend on page load (Render free tier spins down after 15min)
+  useEffect(() => {
+    axios.get(`${API_URL}/health`).then(() => setBackendReady(true)).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

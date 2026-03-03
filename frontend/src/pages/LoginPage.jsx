@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -21,6 +21,11 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  // Wake up backend on page load (Render free tier spins down after 15min)
+  useEffect(() => {
+    axios.get(`${API_URL}/health`).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
