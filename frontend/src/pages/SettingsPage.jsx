@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Switch } from '../components/ui/switch';
+import { Textarea } from '../components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -46,7 +48,14 @@ import {
   Store,
   Trash2,
   ExternalLink,
-  Trophy
+  Trophy,
+  Instagram,
+  MessageCircle,
+  Phone,
+  PauseCircle,
+  Share2,
+  Flame,
+  AlertTriangle
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
 import { themes } from './MiniShopPage';
@@ -66,6 +75,17 @@ export default function SettingsPage() {
   const [currentTheme, setCurrentTheme] = useState(user?.shop_theme || 'elegance');
   const [shopDescription, setShopDescription] = useState(user?.shop_description || '');
   const [savingTheme, setSavingTheme] = useState(false);
+
+  // Seller feature states
+  const [shopInstagram, setShopInstagram] = useState(user?.shop_instagram || '');
+  const [shopWhatsapp, setShopWhatsapp] = useState(user?.shop_whatsapp || '');
+  const [shopViber, setShopViber] = useState(user?.shop_viber || '');
+  const [showLowStock, setShowLowStock] = useState(user?.shop_show_low_stock ?? false);
+  const [showShare, setShowShare] = useState(user?.shop_show_share ?? false);
+  const [quickOrder, setQuickOrder] = useState(user?.shop_quick_order ?? false);
+  const [vacationMode, setVacationMode] = useState(user?.shop_vacation_mode ?? false);
+  const [vacationMessage, setVacationMessage] = useState(user?.shop_vacation_message || '');
+  const [savingFeature, setSavingFeature] = useState(null);
 
   useEffect(() => {
     fetchShopProducts();
@@ -498,6 +518,38 @@ export default function SettingsPage() {
     }
   };
 
+  const saveFeatureToggle = async (field, value) => {
+    setSavingFeature(field);
+    try {
+      await axios.put(`${API_URL}/auth/profile`, { [field]: value });
+      toast.success(language === 'sr' ? 'Sačuvano!' : 'Saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving feature:', error);
+      toast.error(language === 'sr' ? 'Greška' : 'Error');
+    } finally {
+      setSavingFeature(null);
+    }
+  };
+
+  const saveSocialLinks = async () => {
+    setSavingFeature('social');
+    try {
+      await axios.put(`${API_URL}/auth/profile`, {
+        shop_instagram: shopInstagram || '',
+        shop_whatsapp: shopWhatsapp || '',
+        shop_viber: shopViber || '',
+      });
+      toast.success(language === 'sr' ? 'Kontakti sačuvani!' : 'Contacts saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving social links:', error);
+      toast.error(language === 'sr' ? 'Greška' : 'Error');
+    } finally {
+      setSavingFeature(null);
+    }
+  };
+
   const themeDisplayInfo = {
     elegance: { 
       label: 'Elegance', 
@@ -808,10 +860,207 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
+
+            {/* Social Contact Links */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
+                <MessageCircle className="w-4 h-4" />
+                {language === 'sr' ? 'Kontakt dugmad na katalogu' : 'Contact buttons on catalog'}
+              </p>
+              <p className="text-xs text-zinc-500 mb-3">
+                {language === 'sr' 
+                  ? 'Kupci će moći da te kontaktiraju direktno sa kataloga. Ostavi prazno ako ne želiš da prikazuješ.'
+                  : 'Customers can contact you directly from the catalog. Leave empty to hide.'}
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <Instagram className="w-4 h-4 text-white" />
+                  </div>
+                  <Input
+                    value={shopInstagram}
+                    onChange={e => setShopInstagram(e.target.value)}
+                    placeholder={language === 'sr' ? 'Instagram korisničko ime' : 'Instagram username'}
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                    maxLength={100}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-4 h-4 text-white" />
+                  </div>
+                  <Input
+                    value={shopWhatsapp}
+                    onChange={e => setShopWhatsapp(e.target.value)}
+                    placeholder={language === 'sr' ? 'WhatsApp broj (npr. 381601234567)' : 'WhatsApp number (e.g. 381601234567)'}
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                    maxLength={30}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-4 h-4 text-white" />
+                  </div>
+                  <Input
+                    value={shopViber}
+                    onChange={e => setShopViber(e.target.value)}
+                    placeholder={language === 'sr' ? 'Viber broj (npr. 381601234567)' : 'Viber number (e.g. 381601234567)'}
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                    maxLength={30}
+                  />
+                </div>
+                <Button 
+                  onClick={saveSocialLinks} 
+                  className="primary-gradient px-6"
+                  disabled={savingFeature === 'social'}
+                >
+                  {savingFeature === 'social' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  ) : (
+                    <><Check className="w-4 h-4 mr-1" /> {language === 'sr' ? 'Sačuvaj kontakte' : 'Save contacts'}</>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Feature Toggles */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4" />
+                {language === 'sr' ? 'Funkcije kataloga' : 'Catalog Features'}
+              </p>
+              <p className="text-xs text-zinc-500 mb-4">
+                {language === 'sr' 
+                  ? 'Uključi ili isključi dodatne opcije za svoj katalog.'
+                  : 'Enable or disable additional options for your catalog.'}
+              </p>
+              <div className="space-y-4">
+                {/* Low Stock Badge */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {language === 'sr' ? 'Oznaka "Poslednji komadi"' : '"Last items" badge'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {language === 'sr' ? 'Prikazuje se kad je zaliha ≤ 3' : 'Shows when stock ≤ 3'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={showLowStock}
+                    onCheckedChange={(val) => {
+                      setShowLowStock(val);
+                      saveFeatureToggle('shop_show_low_stock', val);
+                    }}
+                    disabled={savingFeature === 'shop_show_low_stock'}
+                  />
+                </div>
+
+                {/* Share Button */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                      <Share2 className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {language === 'sr' ? 'Dugme za deljenje proizvoda' : 'Product share button'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {language === 'sr' ? 'Kupci mogu deliti proizvode' : 'Customers can share products'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={showShare}
+                    onCheckedChange={(val) => {
+                      setShowShare(val);
+                      saveFeatureToggle('shop_show_share', val);
+                    }}
+                    disabled={savingFeature === 'shop_show_share'}
+                  />
+                </div>
+
+                {/* Quick Order */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {language === 'sr' ? 'Brza narudžbina (1 klik)' : 'Quick order (1 click)'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {language === 'sr' ? '"Poruči odmah" dugme preskače korpu' : '"Order now" button skips cart'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={quickOrder}
+                    onCheckedChange={(val) => {
+                      setQuickOrder(val);
+                      saveFeatureToggle('shop_quick_order', val);
+                    }}
+                    disabled={savingFeature === 'shop_quick_order'}
+                  />
+                </div>
+
+                {/* Vacation Mode */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                        <PauseCircle className="w-4 h-4 text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {language === 'sr' ? 'Režim pauze (odmor)' : 'Vacation mode'}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {language === 'sr' ? 'Prikazuje poruku da ne primaš narudžbine' : 'Shows a message that you are not taking orders'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={vacationMode}
+                      onCheckedChange={(val) => {
+                        setVacationMode(val);
+                        saveFeatureToggle('shop_vacation_mode', val);
+                      }}
+                      disabled={savingFeature === 'shop_vacation_mode'}
+                    />
+                  </div>
+                  {vacationMode && (
+                    <div className="pl-11">
+                      <Textarea
+                        value={vacationMessage}
+                        onChange={e => setVacationMessage(e.target.value)}
+                        placeholder={language === 'sr' ? 'Npr. Vraćam se 15. januara!' : 'E.g. Back on January 15!'}
+                        className="bg-zinc-900 border-zinc-700 text-white text-sm resize-none"
+                        maxLength={300}
+                        rows={2}
+                      />
+                      <Button 
+                        size="sm" 
+                        className="mt-2 primary-gradient"
+                        onClick={() => saveFeatureToggle('shop_vacation_message', vacationMessage)}
+                        disabled={savingFeature === 'shop_vacation_message'}
+                      >
+                        <Check className="w-3 h-3 mr-1" />
+                        {language === 'sr' ? 'Sačuvaj poruku' : 'Save message'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
-
-        {/* Referral Program */}
         <Card className="animate-fade-in bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
           <CardHeader>
             <CardTitle className="font-heading flex items-center gap-2 text-white">

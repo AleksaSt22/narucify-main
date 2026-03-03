@@ -21,7 +21,15 @@ import {
   CreditCard,
   ShoppingCart,
   Sparkles,
-  ChevronUp
+  ChevronUp,
+  Share2,
+  MessageCircle,
+  Instagram,
+  Phone,
+  Flame,
+  PauseCircle,
+  Zap,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -65,6 +73,15 @@ const translations = {
     items: 'items',
     paymentMethod: 'Payment Method',
     backToShop: 'Back to Catalog',
+    lastItems: 'Only {n} left!',
+    onSale: 'SALE',
+    orderNow: 'Order Now',
+    share: 'Share',
+    linkCopied: 'Link copied!',
+    vacationTitle: 'Shop is on break',
+    vacationDefault: 'We are temporarily paused. Come back soon!',
+    contactUs: 'Contact us',
+    wasPrice: 'was',
   },
   sr: {
     catalog: 'Katalog',
@@ -102,6 +119,15 @@ const translations = {
     items: 'artikala',
     paymentMethod: 'Način plaćanja',
     backToShop: 'Nazad u katalog',
+    lastItems: 'Još samo {n}!',
+    onSale: 'AKCIJA',
+    orderNow: 'Poruči odmah',
+    share: 'Podeli',
+    linkCopied: 'Link kopiran!',
+    vacationTitle: 'Prodavnica je na pauzi',
+    vacationDefault: 'Privremeno smo pauzirali. Vrati se uskoro!',
+    contactUs: 'Kontaktiraj nas',
+    wasPrice: 'bilo',
   }
 };
 
@@ -446,6 +472,66 @@ export default function MiniShopPage() {
 
   const showWatermark = !shop?.is_pro;
 
+  // Share product link helper
+  const shareProduct = (product) => {
+    const url = `${window.location.origin}/shop/${shopId}?p=${product.id}`;
+    if (navigator.share) {
+      navigator.share({ title: product.name, text: `${product.name} - ${formatCurrency(product.price)}`, url });
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success(t('linkCopied'));
+    }
+  };
+
+  // Quick order — skip cart, go directly to checkout with 1 item
+  const quickOrder = (product) => {
+    setCart([{ ...product, quantity: 1 }]);
+    setShowCheckout(true);
+  };
+
+  // ==================== VACATION MODE ====================
+  if (shop?.shop_vacation_mode) {
+    return (
+      <div className={`min-h-screen ${theme.bg} flex items-center justify-center p-4`}>
+        <div className={`max-w-md w-full ${theme.successCard} rounded-2xl p-8 text-center`}>
+          <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
+            <PauseCircle className="w-10 h-10 text-amber-600" />
+          </div>
+          <h1 className={`text-2xl font-bold ${theme.textPrimary} mb-2`}>{t('vacationTitle')}</h1>
+          <p className={`${theme.textSecondary} mb-6`}>
+            {shop.shop_vacation_message || t('vacationDefault')}
+          </p>
+          {/* Contact buttons even in vacation */}
+          {(shop.shop_instagram || shop.shop_whatsapp || shop.shop_viber) && (
+            <div className="flex justify-center gap-3">
+              {shop.shop_instagram && (
+                <a href={`https://instagram.com/${shop.shop_instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                  className={`w-10 h-10 rounded-full ${theme.accentLight} flex items-center justify-center hover:opacity-80 transition-opacity`}>
+                  <Instagram className="w-5 h-5" />
+                </a>
+              )}
+              {shop.shop_whatsapp && (
+                <a href={`https://wa.me/${shop.shop_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noopener noreferrer"
+                  className={`w-10 h-10 rounded-full ${theme.accentLight} flex items-center justify-center hover:opacity-80 transition-opacity`}>
+                  <MessageCircle className="w-5 h-5" />
+                </a>
+              )}
+              {shop.shop_viber && (
+                <a href={`viber://chat?number=${shop.shop_viber.replace(/[^0-9]/g,'')}`}
+                  className={`w-10 h-10 rounded-full ${theme.accentLight} flex items-center justify-center hover:opacity-80 transition-opacity`}>
+                  <Phone className="w-5 h-5" />
+                </a>
+              )}
+            </div>
+          )}
+          {showWatermark && (
+            <p className={`text-xs ${theme.watermarkText} mt-8`}>{t('poweredBy')}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ==================== ORDER SUCCESS ====================
   if (orderSuccess) {
     return (
@@ -672,11 +758,30 @@ export default function MiniShopPage() {
           <p className={`${theme.heroSub} max-w-lg mx-auto text-base md:text-lg`}>
             {shop?.shop_description || t('browseProducts')}
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight}`}>
               <Package className="w-4 h-4" />
               {shop?.products?.length || 0} {t('products').toLowerCase()}
             </span>
+            {/* Contact buttons */}
+            {shop?.shop_instagram && (
+              <a href={`https://instagram.com/${shop.shop_instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                <Instagram className="w-4 h-4" /> Instagram
+              </a>
+            )}
+            {shop?.shop_whatsapp && (
+              <a href={`https://wa.me/${shop.shop_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                <MessageCircle className="w-4 h-4" /> WhatsApp
+              </a>
+            )}
+            {shop?.shop_viber && (
+              <a href={`viber://chat?number=${shop.shop_viber.replace(/[^0-9]/g,'')}`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                <Phone className="w-4 h-4" /> Viber
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -722,10 +827,29 @@ export default function MiniShopPage() {
                         <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${theme.badgeOutOfStock}`}>{t('outOfStock')}</span>
                       </div>
                     )}
+                    {/* Sale badge */}
+                    {product.old_price && product.old_price > product.price && product.stock > 0 && (
+                      <div className="absolute top-2.5 left-2.5 px-2 py-1 rounded-lg bg-red-500 text-white text-[10px] font-bold shadow-lg flex items-center gap-1">
+                        <Flame className="w-3 h-3" /> {t('onSale')}
+                      </div>
+                    )}
+                    {/* Low stock badge */}
+                    {shop?.shop_show_low_stock && product.stock > 0 && product.stock <= 3 && (
+                      <div className="absolute bottom-2.5 left-2.5 px-2 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-bold shadow-lg">
+                        {t('lastItems').replace('{n}', product.stock)}
+                      </div>
+                    )}
                     {inCart && (
                       <div className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-full ${theme.badge} flex items-center justify-center text-xs font-bold shadow-lg`}>
                         {inCart.quantity}
                       </div>
+                    )}
+                    {/* Share button */}
+                    {shop?.shop_show_share && !inCart && product.stock > 0 && (
+                      <button onClick={() => shareProduct(product)}
+                        className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
                     {justAdded && (
                       <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center pointer-events-none">
@@ -744,9 +868,17 @@ export default function MiniShopPage() {
                     {product.description && (
                       <p className={`text-xs ${theme.textSecondary} line-clamp-2 mb-2`}>{product.description}</p>
                     )}
-                    <p className={`text-lg font-bold ${theme.textPrice}`}>{formatCurrency(product.price)}</p>
+                    {/* Price with sale support */}
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <p className={`text-lg font-bold ${product.old_price && product.old_price > product.price ? 'text-red-500' : theme.textPrice}`}>
+                        {formatCurrency(product.price)}
+                      </p>
+                      {product.old_price && product.old_price > product.price && (
+                        <p className={`text-xs ${theme.textSecondary} line-through`}>{formatCurrency(product.old_price)}</p>
+                      )}
+                    </div>
 
-                    <div className="mt-3">
+                    <div className="mt-3 space-y-1.5">
                       {inCart ? (
                         <div className="flex items-center gap-1.5">
                           <Button size="sm" variant="outline" className={`h-9 w-9 p-0 rounded-lg ${theme.btnOutline}`}
@@ -760,10 +892,19 @@ export default function MiniShopPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Button className={`w-full rounded-lg h-9 text-sm ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
-                          <Plus className="w-3.5 h-3.5" />
-                          {t('addToOrder')}
-                        </Button>
+                        <>
+                          <Button className={`w-full rounded-lg h-9 text-sm ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
+                            <Plus className="w-3.5 h-3.5" />
+                            {t('addToOrder')}
+                          </Button>
+                          {/* Quick order button */}
+                          {shop?.shop_quick_order && product.stock > 0 && (
+                            <Button variant="outline" className={`w-full rounded-lg h-8 text-xs ${theme.btnOutline} gap-1`} size="sm" onClick={() => quickOrder(product)}>
+                              <Zap className="w-3 h-3" />
+                              {t('orderNow')}
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

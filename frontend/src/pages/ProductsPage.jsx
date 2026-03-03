@@ -22,7 +22,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
 
 export default function ProductsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -35,6 +35,7 @@ export default function ProductsPage() {
     name: '',
     description: '',
     price: '',
+    old_price: '',
     stock: '',
     image_url: ''
   });
@@ -64,6 +65,7 @@ export default function ProductsPage() {
         name: product.name,
         description: product.description,
         price: product.price.toString(),
+        old_price: product.old_price ? product.old_price.toString() : '',
         stock: product.stock.toString(),
         image_url: product.image_url
       });
@@ -73,6 +75,7 @@ export default function ProductsPage() {
         name: '',
         description: '',
         price: '',
+        old_price: '',
         stock: '',
         image_url: ''
       });
@@ -88,6 +91,7 @@ export default function ProductsPage() {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
+      old_price: formData.old_price ? parseFloat(formData.old_price) : null,
       stock: parseInt(formData.stock) || 0,
       image_url: formData.image_url
     };
@@ -278,6 +282,9 @@ export default function ProductsPage() {
                   <div className="flex items-center justify-between mt-3">
                     <div>
                       <p className="text-lg font-bold text-primary">{formatCurrency(product.price)}</p>
+                      {product.old_price && product.old_price > product.price && (
+                        <p className="text-xs text-muted-foreground line-through">{formatCurrency(product.old_price)}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">{t('stock')}: {product.stock}</p>
                     </div>
                     <div className="flex gap-1">
@@ -390,6 +397,21 @@ export default function ProductsPage() {
                     data-testid="product-price-input"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="old_price">{language === 'sr' ? 'Stara cena (opciono)' : 'Old Price (optional)'}</Label>
+                  <Input
+                    id="old_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.old_price}
+                    onChange={(e) => setFormData({ ...formData, old_price: e.target.value })}
+                    placeholder={language === 'sr' ? 'Za akciju' : 'For sale'}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="stock">{t('stock')}</Label>
                   <Input

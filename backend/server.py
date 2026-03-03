@@ -256,11 +256,22 @@ class UpdateUserProfile(BaseModel):
     shop_theme: Optional[str] = None
     shop_description: Optional[str] = None
     shop_banner_url: Optional[str] = None
+    # Social contact links
+    shop_instagram: Optional[str] = None
+    shop_whatsapp: Optional[str] = None
+    shop_viber: Optional[str] = None
+    # Feature toggles
+    shop_show_low_stock: Optional[bool] = None
+    shop_show_share: Optional[bool] = None
+    shop_quick_order: Optional[bool] = None
+    shop_vacation_mode: Optional[bool] = None
+    shop_vacation_message: Optional[str] = None
 
 class ProductCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     price: float
+    old_price: Optional[float] = None
     stock: int = 0
     image_url: Optional[str] = ""
     show_in_shop: bool = False
@@ -269,6 +280,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
+    old_price: Optional[float] = None
     stock: Optional[int] = None
     image_url: Optional[str] = None
     show_in_shop: Optional[bool] = None
@@ -279,6 +291,7 @@ class ProductResponse(BaseModel):
     name: str
     description: str
     price: float
+    old_price: Optional[float] = None
     stock: int
     image_url: str
     created_at: str
@@ -724,6 +737,24 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         update_data["shop_description"] = data.shop_description[:500]
     if data.shop_banner_url is not None:
         update_data["shop_banner_url"] = data.shop_banner_url
+    # Social links
+    if data.shop_instagram is not None:
+        update_data["shop_instagram"] = data.shop_instagram[:100]
+    if data.shop_whatsapp is not None:
+        update_data["shop_whatsapp"] = data.shop_whatsapp[:30]
+    if data.shop_viber is not None:
+        update_data["shop_viber"] = data.shop_viber[:30]
+    # Feature toggles
+    if data.shop_show_low_stock is not None:
+        update_data["shop_show_low_stock"] = data.shop_show_low_stock
+    if data.shop_show_share is not None:
+        update_data["shop_show_share"] = data.shop_show_share
+    if data.shop_quick_order is not None:
+        update_data["shop_quick_order"] = data.shop_quick_order
+    if data.shop_vacation_mode is not None:
+        update_data["shop_vacation_mode"] = data.shop_vacation_mode
+    if data.shop_vacation_message is not None:
+        update_data["shop_vacation_message"] = data.shop_vacation_message[:300]
     
     if update_data:
         await db.users.update_one({"id": user["id"]}, {"$set": update_data})
@@ -899,6 +930,7 @@ async def create_product(data: ProductCreate, user: dict = Depends(get_current_u
         "name": data.name,
         "description": data.description or "",
         "price": data.price,
+        "old_price": data.old_price,
         "stock": data.stock,
         "image_url": data.image_url or "",
         "show_in_shop": data.show_in_shop,
@@ -1061,6 +1093,16 @@ async def get_public_shop(user_id: str):
         "shop_theme": seller.get("shop_theme", "elegance"),
         "shop_description": seller.get("shop_description", ""),
         "shop_banner_url": seller.get("shop_banner_url", ""),
+        # Social & contact
+        "shop_instagram": seller.get("shop_instagram", ""),
+        "shop_whatsapp": seller.get("shop_whatsapp", ""),
+        "shop_viber": seller.get("shop_viber", ""),
+        # Feature toggles
+        "shop_show_low_stock": seller.get("shop_show_low_stock", False),
+        "shop_show_share": seller.get("shop_show_share", False),
+        "shop_quick_order": seller.get("shop_quick_order", False),
+        "shop_vacation_mode": seller.get("shop_vacation_mode", False),
+        "shop_vacation_message": seller.get("shop_vacation_message", ""),
         "products": products
     }
 
