@@ -170,6 +170,11 @@ async def startup_db():
             await db.users.drop_index("verification_token_1")
         except Exception:
             pass
+        # Remove null verification_token from existing users so sparse index works
+        await db.users.update_many(
+            {"verification_token": None},
+            {"$unset": {"verification_token": "", "verification_token_expires": ""}}
+        )
         await db.users.create_index("verification_token", unique=True, sparse=True)
 
         # Products indexes
