@@ -490,8 +490,6 @@ async def register(data: UserCreate):
         "default_delivery_days": 3,
         "badges": [],
         "email_verified": True,
-        "verification_token": None,
-        "verification_token_expires": None,
         "features": {
             "analytics": False,
             "finances": False,
