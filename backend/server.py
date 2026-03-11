@@ -165,6 +165,11 @@ async def startup_db():
         await db.users.create_index("id", unique=True)
         await db.users.create_index("email", unique=True)
         await db.users.create_index("referral_code", unique=True, sparse=True)
+        # Drop old verification_token index (may have been created without sparse)
+        try:
+            await db.users.drop_index("verification_token_1")
+        except Exception:
+            pass
         await db.users.create_index("verification_token", unique=True, sparse=True)
 
         # Products indexes
@@ -462,7 +467,6 @@ def check_and_award_badges(user_id: str, orders_count: int) -> List[str]:
 
 @api_router.post("/auth/register", response_model=dict)
 async def register(data: UserCreate):
-  try:
     existing = await db.users.find_one({"email": data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -540,11 +544,6 @@ async def register(data: UserCreate):
             "features": user_doc["features"]
         }
     }
-  except HTTPException:
-    raise
-  except Exception as e:
-    logger.error(f"Register error: {type(e).__name__}: {e}")
-    raise HTTPException(status_code=500, detail=f"Register failed: {type(e).__name__}: {str(e)}")
 
 
 @api_router.get("/auth/verify-email/{token}", response_model=dict)
