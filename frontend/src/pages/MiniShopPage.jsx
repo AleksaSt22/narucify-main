@@ -962,8 +962,8 @@ export default function MiniShopPage() {
         </div>
       )}
 
-      {/* Watermark */}
-      {showWatermark && cart.length === 0 && (
+      {/* Powered by Narucify - always shown */}
+      {cart.length === 0 && (
         <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
           <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
         </div>
