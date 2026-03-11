@@ -462,6 +462,7 @@ def check_and_award_badges(user_id: str, orders_count: int) -> List[str]:
 
 @api_router.post("/auth/register", response_model=dict)
 async def register(data: UserCreate):
+  try:
     existing = await db.users.find_one({"email": data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -539,6 +540,11 @@ async def register(data: UserCreate):
             "features": user_doc["features"]
         }
     }
+  except HTTPException:
+    raise
+  except Exception as e:
+    logger.error(f"Register error: {type(e).__name__}: {e}")
+    raise HTTPException(status_code=500, detail=f"Register failed: {type(e).__name__}: {str(e)}")
 
 
 @api_router.get("/auth/verify-email/{token}", response_model=dict)
