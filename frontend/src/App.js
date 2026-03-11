@@ -17,6 +17,7 @@ import MiniShopPage from './pages/MiniShopPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import LandingPage from './pages/LandingPage';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -45,6 +46,20 @@ const PublicRoute = ({ children }) => {
   }
   
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+};
+
+const LandingRoute = () => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />;
 };
 
 function AppRoutes() {
@@ -111,9 +126,9 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
-      {/* Default Redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Landing page for visitors, dashboard for logged in */}
+      <Route path="/" element={<LandingRoute />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
