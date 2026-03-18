@@ -217,7 +217,7 @@ export default function LandingPage() {
           <Reveal delay={160}>
             <p className="text-[17px] md:text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
               Narucify je platforma za <span className="text-zinc-200">Instagram i WhatsApp prodavce</span> —
-              online katalog, praćenje narudžbina, baza kupaca i analitika.
+              online prodavnica, praćenje narudžbina, baza kupaca i analitika.
               Sve u jednom, bez kodiranja.
             </p>
           </Reveal>
@@ -283,7 +283,7 @@ export default function LandingPage() {
                       { label: 'Narudžbine danas', value: '18', change: '+5', icon: Package, color: 'from-orange-500 to-rose-500', glow: 'shadow-orange-500/10' },
                       { label: 'Mesečni prihod', value: '94.200 RSD', change: '+12%', icon: TrendingUp, color: 'from-emerald-500 to-teal-500', glow: 'shadow-emerald-500/10' },
                       { label: 'Kupci', value: '247', change: '+18', icon: Users, color: 'from-blue-500 to-cyan-500', glow: 'shadow-blue-500/10' },
-                      { label: 'Pregledi kataloga', value: '1.320', change: '+23%', icon: Eye, color: 'from-violet-500 to-purple-500', glow: 'shadow-violet-500/10' },
+                      { label: 'Pregledi prodavnice', value: '1.320', change: '+23%', icon: Eye, color: 'from-violet-500 to-purple-500', glow: 'shadow-violet-500/10' },
                     ].map((s, i) => (
                       <div key={i} className={`p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] shadow-lg ${s.glow}`}>
                         <div className="flex items-center justify-between mb-3">
@@ -340,7 +340,7 @@ export default function LandingPage() {
             {[
               { end: 500, suffix: '+', label: 'Prodavaca' },
               { end: 15000, suffix: '+', label: 'Narudžbina obrađeno' },
-              { end: 6, suffix: '', label: 'Tema za katalog' },
+              { end: 6, suffix: '', label: 'Tema za prodavnicu' },
               { end: 21, suffix: ' dan', label: 'Besplatni trial' },
             ].map((s, i) => (
               <div key={i} className="text-center">
@@ -396,16 +396,16 @@ export default function LandingPage() {
           </Reveal>
 
           <div className="space-y-28">
-            {/* Feature 1 — Katalog */}
+            {/* Feature 1 — Prodavnica */}
             <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
               <Reveal direction="left">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/[0.08] border border-orange-500/15 text-orange-300 text-sm font-medium mb-5">
-                    <Globe className="w-4 h-4" /> Online katalog
+                    <Globe className="w-4 h-4" /> Online prodavnica
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-5 leading-tight">Tvoj katalog. Tvoj brend.</h3>
+                  <h3 className="text-2xl md:text-3xl font-bold mb-5 leading-tight">Tvoja prodavnica. Tvoj brend.</h3>
                   <p className="text-zinc-400 text-[16px] mb-7 leading-relaxed">
-                    6 profesionalnih tema za tvoj online katalog. Podeli link na Instagramu — kupci biraju i naručuju sami. Nema više sto poruka u DM-u.
+                    6 profesionalnih tema za tvoju online prodavnicu. Podeli link na Instagramu — kupci biraju i naručuju sami. Nema više sto poruka u DM-u.
                   </p>
                   <ul className="space-y-3.5">
                     {['6 dizajn tema (Elegance, Midnight, Sunset...)', 'Podrška za akcijske cene i popuste', 'Quick order — narudžbina u 1 klik', 'Share dugme za društvene mreže', 'Vacation mode za pauze'].map((t, i) => (
@@ -581,7 +581,7 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               { icon: Timer, title: 'Setup za 3 min', desc: 'Registruj se, dodaj proizvode, podeli link. Nisi programer? Nema veze.', color: 'from-orange-500 to-rose-600' },
-              { icon: Globe, title: 'Online katalog', desc: '6 premium tema. Kupci naručuju sa linka, ne iz DM-a. Manje posla, više prodaje.', color: 'from-blue-500 to-cyan-500' },
+              { icon: Globe, title: 'Online prodavnica', desc: '6 premium tema. Kupci naručuju sa linka, ne iz DM-a. Manje posla, više prodaje.', color: 'from-blue-500 to-cyan-500' },
               { icon: Smartphone, title: 'Radi sa telefona', desc: 'Upravljaj iz kafića, iz kreveta, sa plaže. Potpuno mobilno iskustvo.', color: 'from-violet-500 to-purple-500' },
               { icon: Users, title: 'Baza kupaca', desc: 'Automatski sačuvani kupci sa istorijom narudžbina. CRM za male prodavce.', color: 'from-emerald-500 to-teal-500' },
               { icon: Shield, title: 'Sigurno', desc: 'Enkripcija podataka i sigurna autentifikacija. Tvoji podaci su samo tvoji.', color: 'from-amber-500 to-orange-500' },
@@ -614,13 +614,13 @@ export default function LandingPage() {
               {
                 name: 'Jovana M.',
                 role: 'Handmade nakit, Instagram',
-                text: 'Pre Narucify sam vodila narudžbine u notesu. Sad imam katalog, praćenje, statistiku — kupci su oduševljeni jer mogu sami da naruče.',
+                text: 'Pre Narucify sam vodila narudžbine u notesu. Sad imam prodavnicu, praćenje, statistiku — kupci su oduševljeni jer mogu sami da naruče.',
                 stars: 5
               },
               {
                 name: 'Stefan R.',
                 role: 'Organska kozmetika',
-                text: 'Katalog sa Sunset temom izgleda neverovatno. Kupci mi šalju screenshot da im se sviđa sajt. Plus, quick order je genijalan — naruče za 10 sekundi.',
+                text: 'Prodavnica sa Sunset temom izgleda neverovatno. Kupci mi šalju screenshot da im se sviđa sajt. Plus, quick order je genijalan — naruče za 10 sekundi.',
                 stars: 5
               },
               {
@@ -679,12 +679,12 @@ export default function LandingPage() {
                 </div>
                 <ul className="space-y-3.5 mb-10 flex-1">
                   {[
-                    'Do 10 proizvoda u katalogu',
+                    'Do 10 proizvoda u prodavnici',
                     'Neograničene narudžbine',
                     'Upravljanje kupcima',
                     'Link za online narudžbinu',
                     'Praćenje narudžbina za kupce',
-                    '6 tema za katalog',
+                    '6 tema za prodavnicu',
                   ].map((f, i) => (
                     <li key={i} className="flex items-start gap-3 text-zinc-300 text-[14px]">
                       <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-emerald-400" /></div>
@@ -754,12 +754,12 @@ export default function LandingPage() {
           </Reveal>
 
           <div className="space-y-3">
-            <FAQItem q="Da li je Narucify zaista besplatan?" a="Da. Starter plan je besplatan zauvek sa do 10 proizvoda u katalogu i neograničenim narudžbinama. PRO plan možeš probati 21 dan potpuno besplatno, bez obaveza." />
+            <FAQItem q="Da li je Narucify zaista besplatan?" a="Da. Starter plan je besplatan zauvek sa do 10 proizvoda u prodavnici i neograničenim narudžbinama. PRO plan možeš probati 21 dan potpuno besplatno, bez obaveza." />
             <FAQItem q="Da li mi treba kreditna kartica za registraciju?" a="Ne. Registracija je potpuno besplatna i ne zahteva nikakve podatke o plaćanju. Karticu dodaješ tek kad odlučiš da nadogradiš na PRO." />
-            <FAQItem q="Kako kupci naručuju preko kataloga?" a="Kupci otvaraju tvoj link (koji podeliš na Instagramu, WhatsApp-u, bio-u...), biraju proizvode, unose podatke za dostavu i potvrde narudžbinu. Ti dobiješ obaveštenje odmah." />
+            <FAQItem q="Kako kupci naručuju preko prodavnice?" a="Kupci otvaraju tvoj link (koji podeliš na Instagramu, WhatsApp-u, bio-u...), biraju proizvode, unose podatke za dostavu i potvrde narudžbinu. Ti dobiješ obaveštenje odmah." />
             <FAQItem q="Da li mogu da koristim Narucify sa telefona?" a="Apsolutno. Narucify je potpuno mobilno-optimizovan. Upravljaj narudžbinama, dodaj proizvode, prati statistiku — sve sa telefona, gde god da si." />
             <FAQItem q="Mogu li da otkazem PRO plan u bilo kom trenutku?" a="Da. Nema ugovora ni obaveza. Možeš otkazati bilo kad i nastaviti da koristiš besplatni Starter plan." />
-            <FAQItem q="Da li podržavate plaćanje karticom na katalogu?" a="Trenutno Narucify podržava naručivanje gde se plaćanje vrši pri preuzimanju (pouzećem) ili dogovorom sa prodavcem. Online plaćanje karticom dolazi uskoro." />
+            <FAQItem q="Da li podržavate plaćanje karticom u prodavnici?" a="Trenutno Narucify podržava naručivanje gde se plaćanje vrši pri preuzimanju (pouzećem) ili dogovorom sa prodavcem. Online plaćanje karticom dolazi uskoro." />
           </div>
         </div>
       </section>
