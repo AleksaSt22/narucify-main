@@ -100,7 +100,7 @@ export default function LandingPage() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  const typed = useTyping(['narudžbine', 'kupce', 'katalog', 'prodaju', 'analitiku'], 80, 2000);
+  const typed = useTyping(['narudžbinama', 'kupcima', 'prodavnicom', 'prodajom', 'analitikom'], 80, 2000);
 
   useEffect(() => { axios.get(`${API_URL}/health`).catch(() => {}); }, []);
 
