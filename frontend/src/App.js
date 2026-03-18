@@ -18,6 +18,7 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import LandingPage from './pages/LandingPage';
+import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -128,7 +129,7 @@ function AppRoutes() {
       
       {/* Landing page for visitors, dashboard for logged in */}
       <Route path="/" element={<LandingRoute />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

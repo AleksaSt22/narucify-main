@@ -447,10 +447,40 @@ export default function MiniShopPage() {
   // ==================== LOADING ====================
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-2 border-stone-200 border-t-stone-900 animate-spin mx-auto mb-4" />
-          <p className="text-stone-400 text-sm">{t('loading')}</p>
+      <div className="min-h-screen bg-stone-50">
+        {/* Header skeleton */}
+        <div className="bg-white border-b border-stone-100">
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-stone-200 animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-5 w-36 bg-stone-200 rounded-lg animate-pulse" />
+                <div className="h-3 w-48 bg-stone-100 rounded-lg animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Products skeleton */}
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="h-4 w-24 bg-stone-200 rounded-lg animate-pulse mb-6" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl bg-white border border-stone-100 overflow-hidden shadow-sm" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="aspect-square bg-stone-100 animate-pulse" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 w-3/4 bg-stone-200 rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-stone-100 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Bottom text */}
+        <div className="text-center py-6">
+          <div className="inline-flex items-center gap-2 text-stone-300 text-xs">
+            <div className="w-3 h-3 rounded-full border border-stone-200 border-t-stone-400 animate-spin" />
+            {t('loading')}
+          </div>
         </div>
       </div>
     );
