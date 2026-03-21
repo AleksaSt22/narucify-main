@@ -16,6 +16,9 @@ import bcrypt
 import time
 from collections import defaultdict
 import httpx
+import base64
+import cloudinary
+import cloudinary.uploader
 
 # Logging setup
 logging.basicConfig(
@@ -146,6 +149,45 @@ async def log_audit(user_id: str, action: str, details: dict = None):
     }
     await db.audit_logs.insert_one(audit_doc)
 
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+    api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
+    secure=True
+)
+
+# PayPal Configuration
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
+PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
+PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com" if PAYPAL_MODE == "sandbox" else "https://api-m.paypal.com"
+
+async def get_paypal_access_token():
+    async with httpx.AsyncClient() as client_http:
+        resp = await client_http.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
+            data={"grant_type": "client_credentials"},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        resp.raise_for_status()
+        return resp.json()["access_token"]
+
+# Notification helper
+async def create_notification(user_id: str, title: str, message: str, notification_type: str = "info", reference_id: str = None):
+    notif_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": title,
+        "message": message,
+        "type": notification_type,
+        "reference_id": reference_id,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notif_doc)
+
 app = FastAPI(
     title="Narucify API",
     description="Narucify - API za Instagram/WhatsApp prodavce",
@@ -208,6 +250,16 @@ async def startup_db():
         await db.expenses.create_index("id", unique=True)
         await db.expenses.create_index("user_id")
         await db.expenses.create_index([("user_id", 1), ("date", -1)])
+
+        # Notifications indexes
+        await db.notifications.create_index("id", unique=True)
+        await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+        await db.notifications.create_index([("user_id", 1), ("read", 1)])
+
+        # Coupons indexes
+        await db.coupons.create_index("id", unique=True)
+        await db.coupons.create_index("user_id")
+        await db.coupons.create_index([("user_id", 1), ("code", 1)], unique=True)
 
         logger.info("MongoDB indexes created successfully")
 
@@ -495,6 +547,7 @@ async def register(data: UserCreate):
         "default_delivery_days": 3,
         "badges": [],
         "email_verified": True,
+        "onboarding_completed": False,
         "features": {
             "analytics": False,
             "finances": False,
@@ -544,6 +597,7 @@ async def register(data: UserCreate):
             "business_name": data.business_name,
             "referral_code": referral_code,
             "is_pro": user_doc["is_pro"],
+            "onboarding_completed": False,
             "features": user_doc["features"]
         }
     }
@@ -720,7 +774,17 @@ async def get_me(user: dict = Depends(get_current_user)):
         "new_badges": new_badges,  # Badges not yet seen
         "logo_url": user.get("logo_url"),
         "default_delivery_days": user.get("default_delivery_days", 3),
-        "features": user.get("features", {})
+        "onboarding_completed": user.get("onboarding_completed", True),
+        "features": user.get("features", {}),
+        "shop_name": user.get("shop_name"),
+        "shop_description": user.get("shop_description"),
+        "shop_theme": user.get("shop_theme"),
+        "shop_banner_url": user.get("shop_banner_url"),
+        "shop_instagram": user.get("shop_instagram"),
+        "shop_whatsapp": user.get("shop_whatsapp"),
+        "shop_phone": user.get("shop_phone"),
+        "shop_vacation_mode": user.get("shop_vacation_mode", False),
+        "shop_vacation_message": user.get("shop_vacation_message"),
     }
 
 @api_router.post("/auth/badges-seen")
@@ -2079,6 +2143,244 @@ async def export_orders_pdf(user: dict = Depends(get_current_user)):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# ==================== NOTIFICATIONS ====================
+
+@api_router.get("/notifications")
+async def get_notifications(user: dict = Depends(get_current_user)):
+    notifications = await db.notifications.find(
+        {"user_id": user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    unread = sum(1 for n in notifications if not n.get("read", False))
+    return {"notifications": notifications, "unread_count": unread}
+
+@api_router.put("/notifications/read-all")
+async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many(
+        {"user_id": user["id"], "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"success": True}
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.update_one(
+        {"id": notification_id, "user_id": user["id"]},
+        {"$set": {"read": True}}
+    )
+    return {"success": True}
+
+
+# ==================== IMAGE UPLOAD ====================
+
+class ImageUploadData(BaseModel):
+    image: str
+
+@api_router.post("/upload/image")
+async def upload_image(data: ImageUploadData, user: dict = Depends(get_current_user)):
+    try:
+        if len(data.image) > 7_000_000:
+            raise HTTPException(status_code=400, detail="Image too large (max 5MB)")
+        result = cloudinary.uploader.upload(
+            data.image,
+            folder=f"narucify/{user['id']}",
+            transformation=[
+                {"width": 800, "height": 800, "crop": "limit", "quality": "auto"}
+            ]
+        )
+        return {"url": result["secure_url"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Image upload error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload image")
+
+
+# ==================== ONBOARDING ====================
+
+class OnboardingComplete(BaseModel):
+    shop_name: Optional[str] = None
+    shop_description: Optional[str] = None
+
+@api_router.post("/onboarding/complete")
+async def complete_onboarding(data: OnboardingComplete, user: dict = Depends(get_current_user)):
+    update = {"onboarding_completed": True}
+    if data.shop_name:
+        update["shop_name"] = data.shop_name[:100]
+    if data.shop_description:
+        update["shop_description"] = data.shop_description[:500]
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    return {"success": True}
+
+@api_router.post("/onboarding/skip")
+async def skip_onboarding(user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$set": {"onboarding_completed": True}})
+    return {"success": True}
+
+
+# ==================== COUPONS ====================
+
+class CouponCreate(BaseModel):
+    code: str
+    discount_type: str
+    discount_value: float
+    min_order_amount: Optional[float] = 0
+    max_uses: Optional[int] = None
+    expires_at: Optional[str] = None
+
+class CouponUpdate(BaseModel):
+    is_active: Optional[bool] = None
+
+@api_router.post("/coupons")
+async def create_coupon(data: CouponCreate, user: dict = Depends(get_current_user)):
+    code = data.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code is required")
+    existing = await db.coupons.find_one({"user_id": user["id"], "code": code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Coupon code already exists")
+    coupon_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "code": code,
+        "discount_type": data.discount_type,
+        "discount_value": data.discount_value,
+        "min_order_amount": data.min_order_amount or 0,
+        "max_uses": data.max_uses,
+        "used_count": 0,
+        "is_active": True,
+        "expires_at": data.expires_at,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.coupons.insert_one(coupon_doc)
+    coupon_doc.pop("_id", None)
+    return coupon_doc
+
+@api_router.get("/coupons")
+async def get_coupons(user: dict = Depends(get_current_user)):
+    coupons = await db.coupons.find(
+        {"user_id": user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return coupons
+
+@api_router.put("/coupons/{coupon_id}")
+async def update_coupon(coupon_id: str, data: CouponUpdate, user: dict = Depends(get_current_user)):
+    update = {}
+    if data.is_active is not None:
+        update["is_active"] = data.is_active
+    if update:
+        await db.coupons.update_one(
+            {"id": coupon_id, "user_id": user["id"]},
+            {"$set": update}
+        )
+    return {"success": True}
+
+@api_router.delete("/coupons/{coupon_id}")
+async def delete_coupon(coupon_id: str, user: dict = Depends(get_current_user)):
+    await db.coupons.delete_one({"id": coupon_id, "user_id": user["id"]})
+    return {"success": True}
+
+@api_router.post("/public/shop/{user_id}/validate-coupon")
+async def validate_coupon(user_id: str, data: dict):
+    code = data.get("code", "").strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code is required")
+    coupon = await db.coupons.find_one({
+        "user_id": user_id,
+        "code": code,
+        "is_active": True
+    })
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Invalid coupon code")
+    if coupon.get("expires_at"):
+        try:
+            expires = datetime.fromisoformat(coupon["expires_at"].replace("Z", "+00:00"))
+            if expires < datetime.now(timezone.utc):
+                raise HTTPException(status_code=400, detail="Coupon has expired")
+        except (ValueError, TypeError):
+            pass
+    if coupon.get("max_uses") and coupon["used_count"] >= coupon["max_uses"]:
+        raise HTTPException(status_code=400, detail="Coupon usage limit reached")
+    return {
+        "valid": True,
+        "discount_type": coupon["discount_type"],
+        "discount_value": coupon["discount_value"],
+        "min_order_amount": coupon.get("min_order_amount", 0)
+    }
+
+
+# ==================== PAYPAL PAYMENTS ====================
+
+@api_router.post("/payments/paypal/create-order")
+async def create_paypal_order(user: dict = Depends(get_current_user)):
+    try:
+        access_token = await get_paypal_access_token()
+        async with httpx.AsyncClient() as client_http:
+            resp = await client_http.post(
+                f"{PAYPAL_BASE_URL}/v2/checkout/orders",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "intent": "CAPTURE",
+                    "purchase_units": [{
+                        "amount": {
+                            "currency_code": "EUR",
+                            "value": "9.99"
+                        },
+                        "description": "Narucify PRO - 1 mesec"
+                    }]
+                }
+            )
+            resp.raise_for_status()
+            order_data = resp.json()
+            return {"id": order_data["id"], "status": order_data["status"]}
+    except Exception as e:
+        logger.error(f"PayPal create order error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create PayPal order")
+
+@api_router.post("/payments/paypal/capture/{order_id}")
+async def capture_paypal_order(order_id: str, user: dict = Depends(get_current_user)):
+    try:
+        access_token = await get_paypal_access_token()
+        async with httpx.AsyncClient() as client_http:
+            resp = await client_http.post(
+                f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}/capture",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            resp.raise_for_status()
+            capture_data = resp.json()
+            if capture_data.get("status") == "COMPLETED":
+                pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {
+                        "is_pro": True,
+                        "pro_expires_at": pro_expires.isoformat()
+                    }}
+                )
+                await create_notification(
+                    user["id"],
+                    "PRO aktiviran! 🎉",
+                    "Tvoj PRO plan je aktivan narednih 30 dana.",
+                    "payment"
+                )
+                return {"status": "COMPLETED", "pro_expires_at": pro_expires.isoformat()}
+            return {"status": capture_data.get("status", "UNKNOWN")}
+    except Exception as e:
+        logger.error(f"PayPal capture error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to capture PayPal payment")
+
+@api_router.get("/payments/paypal/client-id")
+async def get_paypal_client_id(user: dict = Depends(get_current_user)):
+    return {"client_id": PAYPAL_CLIENT_ID}
 
 
 app.include_router(api_router)
