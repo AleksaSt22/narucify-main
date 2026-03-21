@@ -346,6 +346,9 @@ export default function MiniShopPage() {
   const [submitting, setSubmitting] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [addedProductId, setAddedProductId] = useState(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -419,7 +422,18 @@ export default function MiniShopPage() {
     setCart(prev => prev.filter(item => item.id !== productId));
   };
 
-  const getTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const getTotal = () => {
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    if (couponDiscount) {
+      if (couponDiscount.discount_type === 'percent') {
+        return Math.max(0, subtotal - subtotal * (couponDiscount.discount_value / 100));
+      } else {
+        return Math.max(0, subtotal - couponDiscount.discount_value);
+      }
+    }
+    return subtotal;
+  };
+  const getSubtotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const getItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleSubmitOrder = async (e) => {
@@ -432,7 +446,8 @@ export default function MiniShopPage() {
     try {
       const orderResponse = await axios.post(`${API_URL}/public/shop/${shopId}/order`, {
         items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
-        customer: formData
+        customer: formData,
+        coupon_code: couponDiscount ? couponCode : null
       });
       setOrderSuccess(orderResponse.data);
       setCart([]);
@@ -648,9 +663,23 @@ export default function MiniShopPage() {
                     <p className={`font-semibold ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
                   </div>
                 ))}
-                <div className={`pt-4 border-t ${theme.divider} flex justify-between items-center`}>
-                  <span className={`font-semibold ${theme.textPrimary}`}>{t('total')}</span>
-                  <span className={`text-2xl font-bold ${theme.textPrice}`}>{formatCurrency(getTotal())}</span>
+                <div className={`pt-4 border-t ${theme.divider} space-y-2`}>
+                  {couponDiscount && (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className={`text-sm ${theme.textSecondary}`}>{language === 'sr' ? 'Međuzbir' : 'Subtotal'}</span>
+                        <span className={`text-sm ${theme.textSecondary}`}>{formatCurrency(getSubtotal())}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-green-600">
+                        <span className="text-sm">{language === 'sr' ? 'Popust' : 'Discount'} ({couponCode})</span>
+                        <span className="text-sm">-{formatCurrency(getSubtotal() - getTotal())}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className={`font-semibold ${theme.textPrimary}`}>{t('total')}</span>
+                    <span className={`text-2xl font-bold ${theme.textPrice}`}>{formatCurrency(getTotal())}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -714,6 +743,59 @@ export default function MiniShopPage() {
                   <Checkbox checked={formData.subscribe_promo} onCheckedChange={checked => setFormData({...formData, subscribe_promo: checked})} />
                   <span className={`text-sm ${theme.textSecondary}`}>{t('subscribePromo')}</span>
                 </label>
+              </div>
+            </div>
+
+            {/* Coupon Code */}
+            <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} overflow-hidden`}>
+              <div className="p-5">
+                <p className={`text-sm font-medium ${theme.textPrimary} mb-3`}>
+                  {language === 'sr' ? '🏷️ Kupon kod' : '🏷️ Coupon code'}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={couponCode}
+                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponDiscount(null); }}
+                    placeholder={language === 'sr' ? 'Unesi kod' : 'Enter code'}
+                    className={`${theme.inputBg} h-11 rounded-xl uppercase`}
+                    maxLength={20}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 px-4 rounded-xl"
+                    disabled={!couponCode || validatingCoupon}
+                    onClick={async () => {
+                      setValidatingCoupon(true);
+                      try {
+                        const res = await axios.post(`${API_URL}/public/shop/${shopId}/validate-coupon?code=${encodeURIComponent(couponCode)}`);
+                        if (res.data.valid) {
+                          setCouponDiscount(res.data);
+                          toast.success(language === 'sr' ? 'Kupon primenjen!' : 'Coupon applied!');
+                        }
+                      } catch (err) {
+                        setCouponDiscount(null);
+                        toast.error(err.response?.data?.detail || (language === 'sr' ? 'Nevažeći kupon' : 'Invalid coupon'));
+                      } finally {
+                        setValidatingCoupon(false);
+                      }
+                    }}
+                  >
+                    {validatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Primeni' : 'Apply')}
+                  </Button>
+                </div>
+                {couponDiscount && (
+                  <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm flex items-center justify-between">
+                    <span>
+                      {couponDiscount.discount_type === 'percent'
+                        ? `${couponDiscount.discount_value}% ${language === 'sr' ? 'popusta' : 'off'}`
+                        : `${formatCurrency(couponDiscount.discount_value)} ${language === 'sr' ? 'popusta' : 'off'}`}
+                    </span>
+                    <span className="font-semibold">
+                      -{formatCurrency(getSubtotal() - getTotal())}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

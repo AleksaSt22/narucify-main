@@ -55,9 +55,11 @@ import {
   PauseCircle,
   Share2,
   Flame,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
+import { QRCodeCanvas } from 'qrcode.react';
 import { themes } from './MiniShopPage';
 import '../styles/premium.css';
 
@@ -469,8 +471,9 @@ export default function SettingsPage() {
     }
   ];
 
-  const proPrice = '13.99';
+  const proPrice = '9.99';
   const regularPrice = '45.93';
+  const [paypalLoading, setPaypalLoading] = useState(false);
 
   const hasFeatureAccess = (featureKey) => {
     return user?.features?.[featureKey] === true || user?.is_pro;
@@ -738,6 +741,39 @@ export default function SettingsPage() {
               >
                 <ExternalLink className="w-4 h-4" />
               </Button>
+            </div>
+
+            {/* QR Code */}
+            <div className="pt-4 border-t border-zinc-800">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-zinc-400 flex items-center gap-2">
+                  {language === 'sr' ? '📱 QR kod za prodavnicu' : '📱 Shop QR Code'}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-zinc-700 hover:bg-zinc-800 text-xs"
+                  onClick={() => {
+                    const canvas = document.querySelector('#qr-code-canvas canvas');
+                    if (canvas) {
+                      const url = canvas.toDataURL('image/png');
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'narucify-qr-code.png';
+                      a.click();
+                      toast.success(language === 'sr' ? 'QR kod preuzet!' : 'QR code downloaded!');
+                    }
+                  }}
+                >
+                  {language === 'sr' ? 'Preuzmi' : 'Download'}
+                </Button>
+              </div>
+              <div id="qr-code-canvas" className="flex justify-center p-4 bg-white rounded-lg">
+                <QRCodeCanvas value={shopLink} size={180} level="H" includeMargin={true} />
+              </div>
+              <p className="text-xs text-zinc-500 text-center mt-2">
+                {language === 'sr' ? 'Skeniraj da otvoriš prodavnicu' : 'Scan to open shop'}
+              </p>
             </div>
             
             {/* Storefront Products Management */}
@@ -1111,6 +1147,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Coupon Codes Management */}
+        <CouponsSection language={language} />
+
         {/* Delivery Settings */}
         <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
           <CardHeader>
@@ -1211,9 +1250,70 @@ export default function SettingsPage() {
                 size="lg" 
                 className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold px-8 h-12"
                 data-testid="activate-pro-btn"
+                disabled={paypalLoading || user?.is_pro}
+                onClick={async () => {
+                  if (user?.is_pro) return;
+                  setPaypalLoading(true);
+                  try {
+                    // Create PayPal order
+                    const createRes = await axios.post(`${API_URL}/payments/paypal/create-order`);
+                    const orderId = createRes.data.id;
+                    
+                    // Get PayPal client ID
+                    const configRes = await axios.get(`${API_URL}/payments/paypal/client-id`);
+                    const clientId = configRes.data.client_id;
+                    
+                    if (!clientId) {
+                      toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured');
+                      return;
+                    }
+                    
+                    // Open PayPal approval URL
+                    window.open(
+                      `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`,
+                      'paypal',
+                      'width=500,height=600'
+                    );
+                    
+                    // Poll for completion (user approves in popup)
+                    toast.info(language === 'sr' ? 'Odobri plaćanje u PayPal prozoru...' : 'Approve payment in PayPal window...');
+                    
+                    // Try to capture after a delay (user needs to approve first)
+                    const tryCapture = async (attempts = 0) => {
+                      if (attempts > 30) {
+                        toast.error(language === 'sr' ? 'Plaćanje nije završeno' : 'Payment not completed');
+                        setPaypalLoading(false);
+                        return;
+                      }
+                      try {
+                        const captureRes = await axios.post(`${API_URL}/payments/paypal/capture/${orderId}`);
+                        if (captureRes.data.success) {
+                          toast.success(language === 'sr' ? 'PRO plan aktiviran! 🎉' : 'PRO plan activated! 🎉');
+                          await refreshUser();
+                          setPaypalLoading(false);
+                          return;
+                        }
+                      } catch {
+                        // Payment not yet approved, retry
+                        setTimeout(() => tryCapture(attempts + 1), 3000);
+                        return;
+                      }
+                      setPaypalLoading(false);
+                    };
+                    setTimeout(() => tryCapture(0), 5000);
+                  } catch (err) {
+                    toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri plaćanju' : 'Payment error'));
+                    setPaypalLoading(false);
+                  }
+                }}
               >
-                <Zap className="w-5 h-5 mr-2" />
-                {language === 'sr' ? 'Aktiviraj PRO' : 'Activate PRO'}
+                {paypalLoading ? (
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />{language === 'sr' ? 'Obrada...' : 'Processing...'}</>
+                ) : user?.is_pro ? (
+                  <><Check className="w-5 h-5 mr-2" /> PRO {language === 'sr' ? 'Aktivan' : 'Active'}</>
+                ) : (
+                  <><Zap className="w-5 h-5 mr-2" />{language === 'sr' ? 'Plati preko PayPal-a' : 'Pay with PayPal'}</>
+                )}
               </Button>
             </div>
             
@@ -1462,5 +1562,245 @@ export default function SettingsPage() {
         />
       )}
     </Layout>
+  );
+}
+
+// ==================== COUPONS SECTION ====================
+
+function CouponsSection({ language }) {
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    code: '',
+    discount_type: 'percent',
+    discount_value: '',
+    min_order_amount: '',
+    max_uses: '',
+    expires_at: '',
+  });
+
+  const sr = language === 'sr';
+  const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+  useEffect(() => {
+    fetchCoupons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      const res = await axios.get(`${API}/coupons`);
+      setCoupons(res.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!form.code || !form.discount_value) return;
+    setSaving(true);
+    try {
+      await axios.post(`${API}/coupons`, {
+        code: form.code,
+        discount_type: form.discount_type,
+        discount_value: parseFloat(form.discount_value),
+        min_order_amount: form.min_order_amount ? parseFloat(form.min_order_amount) : null,
+        max_uses: form.max_uses ? parseInt(form.max_uses) : null,
+        expires_at: form.expires_at || null,
+      });
+      toast.success(sr ? 'Kupon kreiran!' : 'Coupon created!');
+      setForm({ code: '', discount_type: 'percent', discount_value: '', min_order_amount: '', max_uses: '', expires_at: '' });
+      setShowForm(false);
+      fetchCoupons();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (sr ? 'Greška' : 'Error'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleCoupon = async (coupon) => {
+    try {
+      await axios.put(`${API}/coupons/${coupon.id}`, { is_active: !coupon.is_active });
+      fetchCoupons();
+    } catch (e) {
+      toast.error(sr ? 'Greška' : 'Error');
+    }
+  };
+
+  const deleteCoupon = async (id) => {
+    try {
+      await axios.delete(`${API}/coupons/${id}`);
+      toast.success(sr ? 'Kupon obrisan' : 'Coupon deleted');
+      fetchCoupons();
+    } catch (e) {
+      toast.error(sr ? 'Greška' : 'Error');
+    }
+  };
+
+  return (
+    <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="font-heading flex items-center gap-2 text-white">
+              <Target className="w-5 h-5 text-primary" />
+              {sr ? 'Kupon Kodovi' : 'Coupon Codes'}
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              {sr ? 'Kreiraj popuste za svoju prodavnicu' : 'Create discounts for your shop'}
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            className="primary-gradient"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? (sr ? 'Otkaži' : 'Cancel') : (sr ? '+ Novi kupon' : '+ New coupon')}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {showForm && (
+          <form onSubmit={handleCreate} className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-zinc-400">{sr ? 'Kod' : 'Code'}</Label>
+                <Input
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                  placeholder="POPUST20"
+                  className="bg-zinc-900 border-zinc-700 uppercase"
+                  maxLength={20}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-zinc-400">{sr ? 'Tip popusta' : 'Discount type'}</Label>
+                <select
+                  value={form.discount_type}
+                  onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
+                  className="w-full h-10 px-3 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-white"
+                >
+                  <option value="percent">{sr ? 'Procenat (%)' : 'Percent (%)'}</option>
+                  <option value="fixed">{sr ? 'Fiksni (RSD)' : 'Fixed (RSD)'}</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-zinc-400">
+                  {form.discount_type === 'percent' ? '%' : 'RSD'}
+                </Label>
+                <Input
+                  type="number"
+                  value={form.discount_value}
+                  onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                  placeholder={form.discount_type === 'percent' ? '20' : '500'}
+                  className="bg-zinc-900 border-zinc-700"
+                  min="0"
+                  max={form.discount_type === 'percent' ? 100 : undefined}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-zinc-400">{sr ? 'Min. iznos' : 'Min. amount'}</Label>
+                <Input
+                  type="number"
+                  value={form.min_order_amount}
+                  onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })}
+                  placeholder={sr ? 'Opciono' : 'Optional'}
+                  className="bg-zinc-900 border-zinc-700"
+                  min="0"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-zinc-400">{sr ? 'Max. korišćenja' : 'Max uses'}</Label>
+                <Input
+                  type="number"
+                  value={form.max_uses}
+                  onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
+                  placeholder="∞"
+                  className="bg-zinc-900 border-zinc-700"
+                  min="1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-zinc-400">{sr ? 'Ističe' : 'Expires'}</Label>
+              <Input
+                type="date"
+                value={form.expires_at}
+                onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
+                className="bg-zinc-900 border-zinc-700"
+              />
+            </div>
+            <Button type="submit" disabled={saving} className="w-full primary-gradient">
+              {saving ? '...' : (sr ? 'Kreiraj kupon' : 'Create coupon')}
+            </Button>
+          </form>
+        )}
+
+        {loading ? (
+          <div className="text-center py-4">
+            <Loader2 className="w-5 h-5 animate-spin mx-auto text-zinc-500" />
+          </div>
+        ) : coupons.length === 0 ? (
+          <div className="text-center py-6 text-zinc-500 text-sm">
+            {sr ? 'Nema kupona. Kreiraj prvi!' : 'No coupons yet. Create one!'}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {coupons.map((coupon) => (
+              <div
+                key={coupon.id}
+                className={`flex items-center justify-between p-3 rounded-lg border ${
+                  coupon.is_active ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-900/30 border-zinc-800 opacity-60'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-bold text-primary">{coupon.code}</code>
+                    <Badge variant="outline" className="text-[10px] border-zinc-700 text-zinc-400">
+                      {coupon.discount_type === 'percent'
+                        ? `${coupon.discount_value}%`
+                        : `${coupon.discount_value} RSD`}
+                    </Badge>
+                    {!coupon.is_active && (
+                      <Badge variant="outline" className="text-[10px] border-red-800 text-red-400">
+                        {sr ? 'Neaktivan' : 'Inactive'}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    {sr ? 'Korišćeno' : 'Used'}: {coupon.used_count || 0}
+                    {coupon.max_uses ? `/${coupon.max_uses}` : ''}
+                    {coupon.expires_at ? ` · ${sr ? 'Ističe' : 'Expires'}: ${coupon.expires_at.slice(0, 10)}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Switch
+                    checked={coupon.is_active}
+                    onCheckedChange={() => toggleCoupon(coupon)}
+                    className="scale-75"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-zinc-500 hover:text-red-400"
+                    onClick={() => deleteCoupon(coupon.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

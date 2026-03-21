@@ -1151,6 +1151,7 @@ class ShopCustomerData(BaseModel):
 class ShopOrderCreate(BaseModel):
     items: List[ShopOrderItem]
     customer: ShopCustomerData
+    coupon_code: Optional[str] = None
 
 @api_router.post("/public/shop/{user_id}/order")
 async def create_shop_order(user_id: str, data: ShopOrderCreate, request: Request):
@@ -1189,6 +1190,38 @@ async def create_shop_order(user_id: str, data: ShopOrderCreate, request: Reques
             "subtotal": item_total
         })
         total += item_total
+    
+    # Apply coupon discount
+    discount = 0
+    applied_coupon = None
+    if data.coupon_code:
+        coupon = await db.coupons.find_one({
+            "user_id": user_id,
+            "code": data.coupon_code.strip().upper(),
+            "is_active": True
+        })
+        if coupon:
+            # Check expiry and usage
+            valid = True
+            if coupon.get("expires_at"):
+                try:
+                    expires = datetime.fromisoformat(coupon["expires_at"].replace("Z", "+00:00"))
+                    if expires < datetime.now(timezone.utc):
+                        valid = False
+                except (ValueError, TypeError):
+                    pass
+            if coupon.get("max_uses") and coupon["used_count"] >= coupon["max_uses"]:
+                valid = False
+            if coupon.get("min_order_amount") and total < coupon["min_order_amount"]:
+                valid = False
+            
+            if valid:
+                if coupon["discount_type"] == "percent":
+                    discount = total * (coupon["discount_value"] / 100)
+                else:
+                    discount = min(coupon["discount_value"], total)
+                applied_coupon = coupon["code"]
+                total = max(0, total - discount)
     
     # Create order
     order_id = str(uuid.uuid4())
@@ -1245,6 +1278,8 @@ async def create_shop_order(user_id: str, data: ShopOrderCreate, request: Reques
         },
         "notes": "",
         "estimated_delivery_days": seller.get("default_delivery_days", 3),
+        "coupon_code": applied_coupon,
+        "discount": discount,
         "created_at": confirmed_at,
         "confirmed_at": confirmed_at
     }
@@ -1253,6 +1288,23 @@ async def create_shop_order(user_id: str, data: ShopOrderCreate, request: Reques
     
     # Log audit
     await log_audit(user_id, "order_created_from_storefront", {"order_number": order_number})
+    
+    # Create notification for seller
+    items_summary = ", ".join([f"{it['name']} x{it['quantity']}" for it in items_with_details[:3]])
+    await create_notification(
+        user_id,
+        "Nova porudžbina! 🛒",
+        f"{data.customer.full_name} je naručio/la: {items_summary} - {total:,.0f} RSD",
+        "order",
+        order_id
+    )
+    
+    # Apply coupon if provided
+    if applied_coupon:
+        await db.coupons.update_one(
+            {"user_id": user_id, "code": applied_coupon},
+            {"$inc": {"used_count": 1}}
+        )
     
     return {
         "success": True,

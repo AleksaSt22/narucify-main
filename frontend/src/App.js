@@ -19,10 +19,11 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import LandingPage from './pages/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
+import OnboardingPage from './pages/OnboardingPage';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   
   if (loading) {
     return (
@@ -32,7 +33,14 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  return isAuthenticated ? children : <Navigate to="/" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  
+  // Redirect to onboarding if not completed (except if already on onboarding)
+  if (user && user.onboarding_completed === false && window.location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+  
+  return children;
 };
 
 const PublicRoute = ({ children }) => {
@@ -91,6 +99,11 @@ function AppRoutes() {
       } />
       
       {/* Protected Admin Routes */}
+      <Route path="/onboarding" element={
+        <ProtectedRoute>
+          <OnboardingPage />
+        </ProtectedRoute>
+      } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <DashboardPage />

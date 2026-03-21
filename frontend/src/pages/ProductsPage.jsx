@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
@@ -31,6 +31,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -427,15 +428,63 @@ export default function ProductsPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="image_url">{t('imageUrl')}</Label>
-                <Input
-                  id="image_url"
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                  data-testid="product-image-input"
-                />
+                <Label>{language === 'sr' ? 'Slika proizvoda' : 'Product Image'}</Label>
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center gap-2 px-3 py-2 border border-border rounded-lg cursor-pointer hover:bg-accent transition-colors">
+                    <Upload className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground truncate">
+                      {uploadingImage ? (language === 'sr' ? 'Otpremanje...' : 'Uploading...') : (language === 'sr' ? 'Otpremi sliku' : 'Upload image')}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingImage}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error(language === 'sr' ? 'Slika je prevelika (max 5MB)' : 'Image too large (max 5MB)');
+                          return;
+                        }
+                        setUploadingImage(true);
+                        try {
+                          const reader = new FileReader();
+                          reader.onload = async (ev) => {
+                            try {
+                              const res = await axios.post(`${API_URL}/upload/image`, {
+                                image: ev.target.result,
+                                folder: 'products'
+                              });
+                              setFormData(prev => ({ ...prev, image_url: res.data.url }));
+                              toast.success(language === 'sr' ? 'Slika otpremljena!' : 'Image uploaded!');
+                            } catch (err) {
+                              toast.error(language === 'sr' ? 'Greška pri otpremanju slike' : 'Error uploading image');
+                            } finally {
+                              setUploadingImage(false);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        } catch {
+                          setUploadingImage(false);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    {uploadingImage && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{language === 'sr' ? 'ili URL:' : 'or URL:'}</span>
+                  <Input
+                    type="url"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                    className="text-xs h-8"
+                    data-testid="product-image-input"
+                  />
+                </div>
               </div>
 
               {formData.image_url && (
