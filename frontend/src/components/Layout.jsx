@@ -169,15 +169,12 @@ export const Layout = ({ children }) => {
         lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="h-16 px-6 flex items-center justify-between border-b border-border/50">
+        <div className="h-16 px-6 flex items-center border-b border-border/50">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg primary-gradient flex items-center justify-center">
               <span className="text-white font-bold font-heading">N</span>
             </div>
             <span className="font-bold font-heading text-foreground">Narucify</span>
-          </div>
-          <div className="hidden lg:block">
-            <NotificationBell />
           </div>
         </div>
         
