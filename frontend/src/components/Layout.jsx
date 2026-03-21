@@ -258,6 +258,16 @@ export const Layout = ({ children }) => {
 
       {/* Main Content */}
       <main className="lg:pl-64 pt-16 lg:pt-0 min-h-screen">
+        {/* Desktop Top Bar */}
+        <div className="hidden lg:flex items-center justify-end h-14 px-8 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <span className="text-sm text-muted-foreground">{user?.business_name}</span>
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+              {user?.business_name?.[0]?.toUpperCase() || 'U'}
+            </div>
+          </div>
+        </div>
         <div className="p-4 md:p-6 lg:p-8">
           {children}
         </div>
