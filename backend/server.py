@@ -2387,11 +2387,23 @@ app.include_router(api_router)
 
 # ==================== MIDDLEWARE & LOGGING ====================
 
-cors_origins = os.environ.get('CORS_ORIGINS', '*')
-if cors_origins == '*':
-    allow_origins = ['*']
-else:
+cors_origins = os.environ.get('CORS_ORIGINS', '')
+if cors_origins:
     allow_origins = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
+else:
+    allow_origins = []
+
+# Always include FRONTEND_URL so CORS works with credentials
+if FRONTEND_URL and FRONTEND_URL not in allow_origins:
+    allow_origins.append(FRONTEND_URL)
+# Also allow without trailing slash variant
+frontend_no_slash = FRONTEND_URL.rstrip('/') if FRONTEND_URL else ''
+if frontend_no_slash and frontend_no_slash not in allow_origins:
+    allow_origins.append(frontend_no_slash)
+
+# Fallback: if still empty, allow all (dev mode)
+if not allow_origins:
+    allow_origins = ['*']
 
 app.add_middleware(
     CORSMiddleware,
