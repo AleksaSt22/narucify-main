@@ -138,8 +138,8 @@ export const Layout = ({ children }) => {
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="language-toggle-mobile">
-                <Globe className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="text-foreground" data-testid="language-toggle-mobile">
+                <Globe className="w-5 h-5 text-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -154,10 +154,11 @@ export const Layout = ({ children }) => {
           <Button 
             variant="ghost" 
             size="icon" 
+            className="text-foreground"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             data-testid="mobile-menu-btn"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
           </Button>
         </div>
       </header>
