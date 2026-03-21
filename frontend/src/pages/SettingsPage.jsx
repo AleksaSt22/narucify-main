@@ -89,6 +89,36 @@ export default function SettingsPage() {
   const [vacationMessage, setVacationMessage] = useState(user?.shop_vacation_message || '');
   const [savingFeature, setSavingFeature] = useState(null);
 
+  // Verify PayPal subscription when returning from PayPal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscription') === 'success') {
+      const verifySubscription = async () => {
+        setPaypalLoading(true);
+        try {
+          const res = await axios.post(`${API_URL}/payments/paypal/verify-subscription`);
+          if (res.data.status === 'ACTIVE') {
+            toast.success(language === 'sr' ? 'PRO plan aktiviran! 🎉' : 'PRO plan activated! 🎉');
+            await refreshUser();
+          } else {
+            toast.info(language === 'sr' ? 'Pretplata još nije aktivna. Pokušaj ponovo za minut.' : 'Subscription not active yet. Try again in a minute.');
+          }
+        } catch {
+          toast.error(language === 'sr' ? 'Greška pri verifikaciji pretplate' : 'Subscription verification error');
+        } finally {
+          setPaypalLoading(false);
+          // Clean URL
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      };
+      verifySubscription();
+    } else if (params.get('subscription') === 'cancelled') {
+      toast.info(language === 'sr' ? 'Pretplata otkazana.' : 'Subscription cancelled.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     fetchShopProducts();
     checkForNewBadges();
@@ -1246,75 +1276,70 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <Button 
-                size="lg" 
-                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold px-8 h-12"
-                data-testid="activate-pro-btn"
-                disabled={paypalLoading || user?.is_pro}
-                onClick={async () => {
-                  if (user?.is_pro) return;
-                  setPaypalLoading(true);
-                  try {
-                    // Create PayPal order
-                    const createRes = await axios.post(`${API_URL}/payments/paypal/create-order`);
-                    const orderId = createRes.data.id;
-                    
-                    // Get PayPal client ID
-                    const configRes = await axios.get(`${API_URL}/payments/paypal/client-id`);
-                    const clientId = configRes.data.client_id;
-                    
-                    if (!clientId) {
-                      toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured');
-                      return;
-                    }
-                    
-                    // Open PayPal approval URL
-                    window.open(
-                      `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`,
-                      'paypal',
-                      'width=500,height=600'
-                    );
-                    
-                    // Poll for completion (user approves in popup)
-                    toast.info(language === 'sr' ? 'Odobri plaćanje u PayPal prozoru...' : 'Approve payment in PayPal window...');
-                    
-                    // Try to capture after a delay (user needs to approve first)
-                    const tryCapture = async (attempts = 0) => {
-                      if (attempts > 30) {
-                        toast.error(language === 'sr' ? 'Plaćanje nije završeno' : 'Payment not completed');
-                        setPaypalLoading(false);
-                        return;
-                      }
-                      try {
-                        const captureRes = await axios.post(`${API_URL}/payments/paypal/capture/${orderId}`);
-                        if (captureRes.data.success) {
-                          toast.success(language === 'sr' ? 'PRO plan aktiviran! 🎉' : 'PRO plan activated! 🎉');
+              {user?.is_pro ? (
+                <div className="flex gap-3 items-center">
+                  <Button 
+                    size="lg" 
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 h-12 cursor-default"
+                    data-testid="activate-pro-btn"
+                    disabled
+                  >
+                    <Check className="w-5 h-5 mr-2" /> PRO {language === 'sr' ? 'Aktivan' : 'Active'}
+                  </Button>
+                  {user?.paypal_subscription_status === 'ACTIVE' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-400 border-red-400/30 hover:bg-red-500/10"
+                      disabled={paypalLoading}
+                      onClick={async () => {
+                        if (!window.confirm(language === 'sr' ? 'Da li sigurno želiš da otkažeš PRO pretplatu?' : 'Are you sure you want to cancel PRO subscription?')) return;
+                        setPaypalLoading(true);
+                        try {
+                          await axios.post(`${API_URL}/payments/paypal/cancel-subscription`);
+                          toast.success(language === 'sr' ? 'Pretplata otkazana. PRO ostaje do kraja perioda.' : 'Subscription cancelled. PRO stays until end of period.');
                           await refreshUser();
+                        } catch (err) {
+                          toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška' : 'Error'));
+                        } finally {
                           setPaypalLoading(false);
-                          return;
                         }
-                      } catch {
-                        // Payment not yet approved, retry
-                        setTimeout(() => tryCapture(attempts + 1), 3000);
-                        return;
+                      }}
+                    >
+                      {paypalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Otkaži pretplatu' : 'Cancel subscription')}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold px-8 h-12"
+                  data-testid="activate-pro-btn"
+                  disabled={paypalLoading}
+                  onClick={async () => {
+                    setPaypalLoading(true);
+                    try {
+                      const res = await axios.post(`${API_URL}/payments/paypal/create-subscription`);
+                      const approveUrl = res.data.approve_url;
+                      if (approveUrl) {
+                        window.location.href = approveUrl;
+                      } else {
+                        toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured');
+                        setPaypalLoading(false);
                       }
+                    } catch (err) {
+                      toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri plaćanju' : 'Payment error'));
                       setPaypalLoading(false);
-                    };
-                    setTimeout(() => tryCapture(0), 5000);
-                  } catch (err) {
-                    toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri plaćanju' : 'Payment error'));
-                    setPaypalLoading(false);
-                  }
-                }}
-              >
-                {paypalLoading ? (
-                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />{language === 'sr' ? 'Obrada...' : 'Processing...'}</>
-                ) : user?.is_pro ? (
-                  <><Check className="w-5 h-5 mr-2" /> PRO {language === 'sr' ? 'Aktivan' : 'Active'}</>
-                ) : (
-                  <><Zap className="w-5 h-5 mr-2" />{language === 'sr' ? 'Plati preko PayPal-a' : 'Pay with PayPal'}</>
-                )}
-              </Button>
+                    }
+                  }}
+                >
+                  {paypalLoading ? (
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />{language === 'sr' ? 'Obrada...' : 'Processing...'}</>
+                  ) : (
+                    <><Zap className="w-5 h-5 mr-2" />{language === 'sr' ? 'Pretplati se preko PayPal-a' : 'Subscribe with PayPal'}</>
+                  )}
+                </Button>
+              )}
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-zinc-800">

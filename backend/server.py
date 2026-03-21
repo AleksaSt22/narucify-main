@@ -162,6 +162,8 @@ PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
 PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com" if PAYPAL_MODE == "sandbox" else "https://api-m.paypal.com"
+PAYPAL_PLAN_ID = os.environ.get('PAYPAL_PLAN_ID', '')  # Created via /payments/paypal/setup-plan
+PAYPAL_WEBHOOK_ID = os.environ.get('PAYPAL_WEBHOOK_ID', '')
 
 async def get_paypal_access_token():
     async with httpx.AsyncClient() as client_http:
@@ -785,6 +787,7 @@ async def get_me(user: dict = Depends(get_current_user)):
         "shop_phone": user.get("shop_phone"),
         "shop_vacation_mode": user.get("shop_vacation_mode", False),
         "shop_vacation_message": user.get("shop_vacation_message"),
+        "paypal_subscription_status": user.get("paypal_subscription_status"),
     }
 
 @api_router.post("/auth/badges-seen")
@@ -2312,52 +2315,229 @@ async def validate_coupon(user_id: str, data: dict):
     }
 
 
-# ==================== PAYPAL PAYMENTS ====================
+# ==================== PAYPAL SUBSCRIPTIONS ====================
 
-@api_router.post("/payments/paypal/create-order")
-async def create_paypal_order(user: dict = Depends(get_current_user)):
+@api_router.post("/payments/paypal/setup-plan")
+async def setup_paypal_plan(user: dict = Depends(get_current_user)):
+    """One-time setup: creates PayPal Product + Plan. Save the plan_id as PAYPAL_PLAN_ID env var."""
+    try:
+        access_token = await get_paypal_access_token()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient() as client_http:
+            # 1. Create Product
+            prod_resp = await client_http.post(
+                f"{PAYPAL_BASE_URL}/v1/catalogs/products",
+                headers=headers,
+                json={
+                    "name": "Narucify PRO",
+                    "description": "Narucify PRO mesečna pretplata — neograničeni proizvodi, analitika, finansije, export, custom branding",
+                    "type": "SERVICE",
+                    "category": "SOFTWARE"
+                }
+            )
+            prod_resp.raise_for_status()
+            product_id = prod_resp.json()["id"]
+            
+            # 2. Create Plan
+            plan_resp = await client_http.post(
+                f"{PAYPAL_BASE_URL}/v1/billing/plans",
+                headers=headers,
+                json={
+                    "product_id": product_id,
+                    "name": "Narucify PRO - Mesečno",
+                    "description": "9.99 EUR mesečno, automatsko obnavljanje",
+                    "billing_cycles": [
+                        {
+                            "frequency": {"interval_unit": "MONTH", "interval_count": 1},
+                            "tenure_type": "REGULAR",
+                            "sequence": 1,
+                            "total_cycles": 0,
+                            "pricing_scheme": {
+                                "fixed_price": {"value": "9.99", "currency_code": "EUR"}
+                            }
+                        }
+                    ],
+                    "payment_preferences": {
+                        "auto_bill_outstanding": True,
+                        "payment_failure_threshold": 3
+                    }
+                }
+            )
+            plan_resp.raise_for_status()
+            plan_data = plan_resp.json()
+            
+            return {
+                "product_id": product_id,
+                "plan_id": plan_data["id"],
+                "plan_status": plan_data["status"],
+                "message": f"Plan created! Set PAYPAL_PLAN_ID={plan_data['id']} on Render."
+            }
+    except Exception as e:
+        logger.error(f"PayPal setup plan error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create plan: {str(e)}")
+
+@api_router.post("/payments/paypal/create-subscription")
+async def create_paypal_subscription(user: dict = Depends(get_current_user)):
+    """Create a PayPal subscription for the current user."""
+    if not PAYPAL_PLAN_ID:
+        raise HTTPException(status_code=500, detail="PayPal plan not configured. Run /payments/paypal/setup-plan first.")
     try:
         access_token = await get_paypal_access_token()
         async with httpx.AsyncClient() as client_http:
             resp = await client_http.post(
-                f"{PAYPAL_BASE_URL}/v2/checkout/orders",
+                f"{PAYPAL_BASE_URL}/v1/billing/subscriptions",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json"
                 },
                 json={
-                    "intent": "CAPTURE",
-                    "purchase_units": [{
-                        "amount": {
-                            "currency_code": "EUR",
-                            "value": "9.99"
-                        },
-                        "description": "Narucify PRO - 1 mesec"
-                    }]
+                    "plan_id": PAYPAL_PLAN_ID,
+                    "custom_id": user["id"],
+                    "application_context": {
+                        "brand_name": "Narucify",
+                        "locale": "sr-RS",
+                        "shipping_preference": "NO_SHIPPING",
+                        "user_action": "SUBSCRIBE_NOW",
+                        "return_url": f"{FRONTEND_URL}/settings?subscription=success",
+                        "cancel_url": f"{FRONTEND_URL}/settings?subscription=cancelled"
+                    }
                 }
             )
             resp.raise_for_status()
-            order_data = resp.json()
-            return {"id": order_data["id"], "status": order_data["status"]}
+            sub_data = resp.json()
+            
+            # Find approval link
+            approve_url = None
+            for link in sub_data.get("links", []):
+                if link["rel"] == "approve":
+                    approve_url = link["href"]
+                    break
+            
+            # Save subscription ID to user
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"paypal_subscription_id": sub_data["id"]}}
+            )
+            
+            return {
+                "subscription_id": sub_data["id"],
+                "approve_url": approve_url
+            }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"PayPal create order error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create PayPal order")
+        logger.error(f"PayPal create subscription error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create subscription")
 
-@api_router.post("/payments/paypal/capture/{order_id}")
-async def capture_paypal_order(order_id: str, user: dict = Depends(get_current_user)):
+@api_router.post("/payments/paypal/verify-subscription")
+async def verify_paypal_subscription(user: dict = Depends(get_current_user)):
+    """After user returns from PayPal, verify subscription is active."""
+    sub_id = user.get("paypal_subscription_id")
+    if not sub_id:
+        raise HTTPException(status_code=400, detail="No subscription found")
+    try:
+        access_token = await get_paypal_access_token()
+        async with httpx.AsyncClient() as client_http:
+            resp = await client_http.get(
+                f"{PAYPAL_BASE_URL}/v1/billing/subscriptions/{sub_id}",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            resp.raise_for_status()
+            sub_data = resp.json()
+            
+            if sub_data.get("status") == "ACTIVE":
+                pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {
+                        "is_pro": True,
+                        "pro_expires_at": pro_expires.isoformat(),
+                        "paypal_subscription_status": "ACTIVE"
+                    }}
+                )
+                await create_notification(
+                    user["id"],
+                    "PRO aktiviran! 🎉",
+                    "Tvoj PRO plan je aktivan. Pretplata se automatski obnavlja svakog meseca.",
+                    "payment"
+                )
+                return {"status": "ACTIVE", "pro_expires_at": pro_expires.isoformat()}
+            
+            return {"status": sub_data.get("status", "UNKNOWN")}
+    except Exception as e:
+        logger.error(f"PayPal verify subscription error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify subscription")
+
+@api_router.post("/payments/paypal/cancel-subscription")
+async def cancel_paypal_subscription(user: dict = Depends(get_current_user)):
+    """Cancel the user's PayPal subscription."""
+    sub_id = user.get("paypal_subscription_id")
+    if not sub_id:
+        raise HTTPException(status_code=400, detail="No subscription found")
     try:
         access_token = await get_paypal_access_token()
         async with httpx.AsyncClient() as client_http:
             resp = await client_http.post(
-                f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}/capture",
+                f"{PAYPAL_BASE_URL}/v1/billing/subscriptions/{sub_id}/cancel",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json"
-                }
+                },
+                json={"reason": "User requested cancellation"}
             )
+            # 204 = success
+            if resp.status_code in (200, 204):
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {"paypal_subscription_status": "CANCELLED"}}
+                )
+                await create_notification(
+                    user["id"],
+                    "Pretplata otkazana",
+                    "PRO plan ostaje aktivan do kraja perioda. Posle toga prelazi na Starter.",
+                    "payment"
+                )
+                return {"status": "CANCELLED"}
             resp.raise_for_status()
-            capture_data = resp.json()
-            if capture_data.get("status") == "COMPLETED":
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PayPal cancel subscription error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to cancel subscription")
+
+@api_router.post("/payments/paypal/webhook")
+async def paypal_webhook(request: Request):
+    """Handle PayPal webhook events for recurring payments."""
+    body = await request.json()
+    event_type = body.get("event_type", "")
+    resource = body.get("resource", {})
+    
+    logger.info(f"PayPal webhook: {event_type}")
+    
+    if event_type == "BILLING.SUBSCRIPTION.ACTIVATED":
+        custom_id = resource.get("custom_id")  # user_id
+        sub_id = resource.get("id")
+        if custom_id:
+            pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
+            await db.users.update_one(
+                {"id": custom_id},
+                {"$set": {
+                    "is_pro": True,
+                    "pro_expires_at": pro_expires.isoformat(),
+                    "paypal_subscription_id": sub_id,
+                    "paypal_subscription_status": "ACTIVE"
+                }}
+            )
+    
+    elif event_type == "PAYMENT.SALE.COMPLETED":
+        # Recurring payment received
+        billing_agreement_id = resource.get("billing_agreement_id")
+        if billing_agreement_id:
+            user = await db.users.find_one({"paypal_subscription_id": billing_agreement_id})
+            if user:
                 pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
                 await db.users.update_one(
                     {"id": user["id"]},
@@ -2368,19 +2548,30 @@ async def capture_paypal_order(order_id: str, user: dict = Depends(get_current_u
                 )
                 await create_notification(
                     user["id"],
-                    "PRO aktiviran! 🎉",
-                    "Tvoj PRO plan je aktivan narednih 30 dana.",
+                    "PRO obnovljen! ✅",
+                    "Mesečna pretplata uspešno naplaćena. PRO je aktivan narednih 30 dana.",
                     "payment"
                 )
-                return {"status": "COMPLETED", "pro_expires_at": pro_expires.isoformat()}
-            return {"status": capture_data.get("status", "UNKNOWN")}
-    except Exception as e:
-        logger.error(f"PayPal capture error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to capture PayPal payment")
+    
+    elif event_type in ("BILLING.SUBSCRIPTION.CANCELLED", "BILLING.SUBSCRIPTION.SUSPENDED"):
+        custom_id = resource.get("custom_id")
+        sub_id = resource.get("id")
+        if custom_id:
+            await db.users.update_one(
+                {"id": custom_id},
+                {"$set": {"paypal_subscription_status": event_type.split(".")[-1]}}
+            )
+        elif sub_id:
+            await db.users.update_one(
+                {"paypal_subscription_id": sub_id},
+                {"$set": {"paypal_subscription_status": event_type.split(".")[-1]}}
+            )
+    
+    return {"status": "ok"}
 
 @api_router.get("/payments/paypal/client-id")
 async def get_paypal_client_id(user: dict = Depends(get_current_user)):
-    return {"client_id": PAYPAL_CLIENT_ID}
+    return {"client_id": PAYPAL_CLIENT_ID, "plan_id": PAYPAL_PLAN_ID}
 
 
 app.include_router(api_router)
