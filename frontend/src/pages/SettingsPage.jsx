@@ -539,14 +539,16 @@ export default function SettingsPage() {
   const shopLink = `${window.location.origin}/shop/${user?.id}`;
 
   const saveShopTheme = async (themeKey) => {
+    const previousTheme = currentTheme;
     setCurrentTheme(themeKey);
     setSavingTheme(true);
     try {
       await axios.put(`${API_URL}/auth/profile`, { shop_theme: themeKey });
       toast.success(language === 'sr' ? 'Tema sačuvana!' : 'Theme saved!');
-      if (refreshUser) refreshUser();
+      if (refreshUser) await refreshUser();
     } catch (error) {
       console.error('Error saving theme:', error);
+      setCurrentTheme(previousTheme);
       toast.error(language === 'sr' ? 'Greška pri čuvanju teme' : 'Error saving theme');
     } finally {
       setSavingTheme(false);

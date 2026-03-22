@@ -812,8 +812,9 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         update_data["default_delivery_days"] = data.default_delivery_days
     if data.shop_theme is not None:
         valid_themes = ["elegance", "midnight", "sunset", "nature", "ocean", "minimal", "cherry", "lavender", "gold", "arctic", "coffee", "neon"]
-        if data.shop_theme in valid_themes:
-            update_data["shop_theme"] = data.shop_theme
+        if data.shop_theme not in valid_themes:
+            raise HTTPException(status_code=400, detail="Invalid theme")
+        update_data["shop_theme"] = data.shop_theme
     if data.shop_description is not None:
         update_data["shop_description"] = data.shop_description[:500]
     if data.shop_banner_url is not None:
