@@ -45,7 +45,8 @@ import {
   Truck,
   Download,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -471,6 +472,22 @@ export default function OrdersPage() {
                               {t(status)} {order.status === status && <Check className="w-4 h-4 ml-2" />}
                             </DropdownMenuItem>
                           ))}
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              try {
+                                const res = await axios.get(`${API_URL}/export/orders/${order.id}/invoice`, { responseType: 'blob' });
+                                const url = window.URL.createObjectURL(new Blob([res.data]));
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `faktura_${order.order_number}.pdf`;
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                              } catch { toast.error(t('error')); }
+                            }}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            {language === 'sr' ? 'Faktura (PDF)' : 'Invoice (PDF)'}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

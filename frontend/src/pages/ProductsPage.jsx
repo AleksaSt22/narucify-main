@@ -40,6 +40,7 @@ export default function ProductsPage() {
     price: '',
     old_price: '',
     stock: '',
+    category: '',
     images: []
   });
   const [togglingShop, setTogglingShop] = useState(null);
@@ -73,6 +74,7 @@ export default function ProductsPage() {
         price: product.price.toString(),
         old_price: product.old_price ? product.old_price.toString() : '',
         stock: product.stock.toString(),
+        category: product.category || '',
         images: images
       });
     } else {
@@ -83,6 +85,7 @@ export default function ProductsPage() {
         price: '',
         old_price: '',
         stock: '',
+        category: '',
         images: []
       });
     }
@@ -100,7 +103,8 @@ export default function ProductsPage() {
       old_price: formData.old_price ? parseFloat(formData.old_price) : null,
       stock: parseInt(formData.stock) || 0,
       image_url: formData.images[0] || '',
-      images: formData.images
+      images: formData.images,
+      category: formData.category
     };
 
     try {
@@ -485,6 +489,21 @@ export default function ProductsPage() {
                     placeholder="0"
                     data-testid="product-stock-input"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">{language === 'sr' ? 'Kategorija' : 'Category'}</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder={language === 'sr' ? 'npr. Odeća, Elektronika...' : 'e.g. Clothing, Electronics...'}
+                    list="category-suggestions"
+                  />
+                  <datalist id="category-suggestions">
+                    {[...new Set(products.map(p => p.category).filter(Boolean))].map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
               

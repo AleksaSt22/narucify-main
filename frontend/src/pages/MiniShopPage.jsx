@@ -31,7 +31,11 @@ import {
   Zap,
   Copy,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Heart,
+  Search,
+  ArrowUpDown,
+  SlidersHorizontal
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -84,6 +88,16 @@ const translations = {
     vacationDefault: 'We are temporarily paused. Come back soon!',
     contactUs: 'Contact us',
     wasPrice: 'was',
+    searchProducts: 'Search products...',
+    allCategories: 'All',
+    sortDefault: 'Default',
+    sortPriceLow: 'Price: Low to High',
+    sortPriceHigh: 'Price: High to Low',
+    sortNewest: 'Newest',
+    wishlist: 'Wishlist',
+    addedToWishlist: 'Added to wishlist!',
+    removedFromWishlist: 'Removed from wishlist',
+    noResults: 'No products found',
   },
   sr: {
     catalog: 'Prodavnica',
@@ -130,6 +144,16 @@ const translations = {
     vacationDefault: 'Privremeno smo pauzirali. Vrati se uskoro!',
     contactUs: 'Kontaktiraj nas',
     wasPrice: 'bilo',
+    searchProducts: 'Pretra\u017ei proizvode...',
+    allCategories: 'Sve',
+    sortDefault: 'Podrazumevano',
+    sortPriceLow: 'Cena: niska ka visokoj',
+    sortPriceHigh: 'Cena: visoka ka niskoj',
+    sortNewest: 'Najnovije',
+    wishlist: 'Lista \u017eelja',
+    addedToWishlist: 'Dodato u listu \u017eelja!',
+    removedFromWishlist: 'Uklonjeno iz liste \u017eelja',
+    noResults: 'Nema rezultata',
   }
 };
 
@@ -349,6 +373,12 @@ export default function MiniShopPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [addedProductId, setAddedProductId] = useState(null);
   const [imageIndexes, setImageIndexes] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sortBy, setSortBy] = useState('default');
+  const [wishlist, setWishlist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`narucify-wishlist-${shopId}`) || '[]'); } catch { return []; }
+  });
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -391,6 +421,35 @@ export default function MiniShopPage() {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('sr-RS').format(amount) + ' ' + t('currency');
   };
+
+  // Wishlist helpers
+  const toggleWishlist = (productId) => {
+    setWishlist(prev => {
+      const next = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
+      localStorage.setItem(`narucify-wishlist-${shopId}`, JSON.stringify(next));
+      toast.success(next.includes(productId) ? t('addedToWishlist') : t('removedFromWishlist'));
+      return next;
+    });
+  };
+  const isWishlisted = (productId) => wishlist.includes(productId);
+
+  // Categories from products
+  const categories = [...new Set((shop?.products || []).map(p => p.category).filter(Boolean))];
+
+  // Filtered + sorted products
+  const filteredProducts = (shop?.products || [])
+    .filter(p => {
+      const q = searchQuery.toLowerCase();
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
+      const matchCategory = !selectedCategory || p.category === selectedCategory;
+      return matchSearch && matchCategory;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_low') return a.price - b.price;
+      if (sortBy === 'price_high') return b.price - a.price;
+      if (sortBy === 'newest') return (b.created_at || '').localeCompare(a.created_at || '');
+      return 0;
+    });
 
   const addToCart = (product) => {
     const existing = cart.find(item => item.id === product.id);
@@ -903,9 +962,52 @@ export default function MiniShopPage() {
 
       {/* Products */}
       <main className="max-w-5xl mx-auto px-4 py-8 pb-32">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h3 className={`text-lg font-semibold ${theme.textPrimary}`}>{t('allProducts')}</h3>
+          {wishlist.length > 0 && (
+            <button onClick={() => setSelectedCategory('__wishlist__')} className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full transition-colors ${selectedCategory === '__wishlist__' ? 'bg-red-500/20 text-red-400' : `${theme.textSecondary} hover:${theme.textPrimary}`}`}>
+              <Heart className={`w-4 h-4 ${selectedCategory === '__wishlist__' ? 'fill-red-400' : ''}`} />
+              {t('wishlist')} ({wishlist.length})
+            </button>
+          )}
         </div>
+
+        {/* Search & Filters */}
+        {shop?.products?.length > 0 && (
+          <div className="space-y-3 mb-6">
+            <div className="relative">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${theme.textSecondary}`} />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('searchProducts')}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${theme.cardBorder} ${theme.cardBg} ${theme.textPrimary} text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 placeholder:${theme.textSecondary}`}
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button onClick={() => setSelectedCategory('')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${!selectedCategory ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+                {t('allCategories')}
+              </button>
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {[
+                { val: 'default', label: t('sortDefault') },
+                { val: 'price_low', label: t('sortPriceLow') },
+                { val: 'price_high', label: t('sortPriceHigh') },
+                { val: 'newest', label: t('sortNewest') },
+              ].map(opt => (
+                <button key={opt.val} onClick={() => setSortBy(opt.val)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${sortBy === opt.val ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {shop?.products?.length === 0 ? (
           <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} ${theme.cardShadow}`}>
@@ -918,8 +1020,21 @@ export default function MiniShopPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-            {shop?.products?.map((product, index) => {
+          <>
+          {(() => {
+            const displayProducts = selectedCategory === '__wishlist__'
+              ? (shop?.products || []).filter(p => wishlist.includes(p.id))
+              : filteredProducts;
+            return displayProducts.length === 0 ? (
+              <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} ${theme.cardShadow}`}>
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Search className={`w-10 h-10 ${theme.emptyIcon} mb-3`} />
+                  <p className={`text-sm ${theme.textSecondary}`}>{t('noResults')}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+                {displayProducts.map((product, index) => {
               const inCart = cart.find(item => item.id === product.id);
               const justAdded = addedProductId === product.id;
               return (
@@ -999,6 +1114,11 @@ export default function MiniShopPage() {
                         <Share2 className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    {/* Wishlist heart */}
+                    <button onClick={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
+                      className={`absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center transition-all ${isWishlisted(product.id) ? 'bg-red-500/80 text-white' : 'bg-black/30 text-white opacity-0 group-hover:opacity-100'}`}>
+                      <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? 'fill-white' : ''}`} />
+                    </button>
                     {justAdded && (
                       <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center pointer-events-none">
                         <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center animate-ping-once">
@@ -1059,7 +1179,10 @@ export default function MiniShopPage() {
                 </div>
               );
             })}
-          </div>
+              </div>
+            );
+          })()}
+          </>
         )}
       </main>
 

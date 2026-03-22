@@ -339,6 +339,7 @@ class ProductCreate(BaseModel):
     stock: int = 0
     image_url: Optional[str] = ""
     images: Optional[List[str]] = []
+    category: Optional[str] = ""
     show_in_shop: bool = False
 
 class ProductUpdate(BaseModel):
@@ -349,6 +350,7 @@ class ProductUpdate(BaseModel):
     stock: Optional[int] = None
     image_url: Optional[str] = None
     images: Optional[List[str]] = None
+    category: Optional[str] = None
     show_in_shop: Optional[bool] = None
 
 class ProductResponse(BaseModel):
@@ -361,6 +363,7 @@ class ProductResponse(BaseModel):
     stock: int
     image_url: str
     images: List[str] = []
+    category: str = ""
     created_at: str
     show_in_shop: bool = False
 
@@ -1066,6 +1069,7 @@ async def create_product(data: ProductCreate, user: dict = Depends(get_current_u
         "stock": data.stock,
         "image_url": image_url,
         "images": images,
+        "category": data.category or "",
         "show_in_shop": data.show_in_shop,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -1081,6 +1085,8 @@ async def get_products(user: dict = Depends(get_current_user)):
             p["show_in_shop"] = False
         if "images" not in p:
             p["images"] = [p["image_url"]] if p.get("image_url") else []
+        if "category" not in p:
+            p["category"] = ""
     return [ProductResponse(**p) for p in products]
 
 @api_router.get("/products/{product_id}", response_model=ProductResponse)
@@ -1092,6 +1098,8 @@ async def get_product(product_id: str, user: dict = Depends(get_current_user)):
         product["show_in_shop"] = False
     if "images" not in product:
         product["images"] = [product["image_url"]] if product.get("image_url") else []
+    if "category" not in product:
+        product["category"] = ""
     return ProductResponse(**product)
 
 @api_router.put("/products/{product_id}", response_model=ProductResponse)
@@ -1110,6 +1118,8 @@ async def update_product(product_id: str, data: ProductUpdate, user: dict = Depe
     updated = await db.products.find_one({"id": product_id}, {"_id": 0})
     if "images" not in updated:
         updated["images"] = [updated["image_url"]] if updated.get("image_url") else []
+    if "category" not in updated:
+        updated["category"] = ""
     return ProductResponse(**updated)
 
 @api_router.delete("/products/{product_id}")
@@ -1226,12 +1236,14 @@ async def get_public_shop(user_id: str):
     products = await db.products.find(
         {"user_id": user_id, "show_in_shop": True, "stock": {"$gt": 0}},
         {"_id": 0}
-    ).limit(10).to_list(10)
+    ).to_list(100)
     
-    # Ensure images field exists for older products
+    # Ensure fields exist for older products
     for p in products:
         if "images" not in p:
             p["images"] = [p["image_url"]] if p.get("image_url") else []
+        if "category" not in p:
+            p["category"] = ""
     
     return {
         "seller_name": seller["business_name"],
@@ -1368,12 +1380,31 @@ async def create_shop_order(user_id: str, data: ShopOrderCreate, request: Reques
     tracking_id = str(uuid.uuid4())[:8].upper()
     order_number = generate_order_number()
     
-    # Decrease stock
+    # Decrease stock and check for low stock alerts
     for item in data.items:
-        await db.products.update_one(
+        result = await db.products.find_one_and_update(
             {"id": item.product_id},
-            {"$inc": {"stock": -item.quantity}}
+            {"$inc": {"stock": -item.quantity}},
+            return_document=True
         )
+        if result:
+            new_stock = result.get("stock", 0)
+            if new_stock <= 0:
+                await create_notification(
+                    user_id,
+                    "Proizvod rasprodat! ⚠️",
+                    f"{result['name']} je rasprodat (stanje: {new_stock}). Dopuni zalihe.",
+                    "warning",
+                    item.product_id
+                )
+            elif new_stock <= 5:
+                await create_notification(
+                    user_id,
+                    "Nisko stanje zaliha 📦",
+                    f"{result['name']} ima samo {new_stock} na stanju.",
+                    "warning",
+                    item.product_id
+                )
     
     # Save customer
     customer_doc = {
@@ -1637,12 +1668,31 @@ async def confirm_public_order(link_token: str, customer_data: CustomerDataSubmi
                 detail=f"Insufficient stock for {item['name']}. Available: {product['stock']}"
             )
     
-    # Decrease stock
+    # Decrease stock and check for low stock alerts
     for item in order["items"]:
-        await db.products.update_one(
+        result = await db.products.find_one_and_update(
             {"id": item["product_id"]},
-            {"$inc": {"stock": -item["quantity"]}}
+            {"$inc": {"stock": -item["quantity"]}},
+            return_document=True
         )
+        if result:
+            new_stock = result.get("stock", 0)
+            if new_stock <= 0:
+                await create_notification(
+                    order["user_id"],
+                    "Proizvod rasprodat! ⚠️",
+                    f"{result['name']} je rasprodat (stanje: {new_stock}). Dopuni zalihe.",
+                    "warning",
+                    item["product_id"]
+                )
+            elif new_stock <= 5:
+                await create_notification(
+                    order["user_id"],
+                    "Nisko stanje zaliha 📦",
+                    f"{result['name']} ima samo {new_stock} na stanju.",
+                    "warning",
+                    item["product_id"]
+                )
     
     # Save customer data
     customer_doc = {
@@ -2213,6 +2263,124 @@ async def export_orders_pdf(user: dict = Depends(get_current_user)):
     output.seek(0)
     
     filename = f"narucify_orders_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        output,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/export/orders/{order_id}/invoice")
+async def export_order_invoice(order_id: str, user: dict = Depends(get_current_user)):
+    """Generate a professional invoice PDF for a single order"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    order = await db.orders.find_one({"id": order_id, "user_id": user["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    seller = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
+    
+    output = BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('InvTitle', parent=styles['Heading1'], fontSize=22, spaceAfter=4)
+    subtitle_style = ParagraphStyle('InvSub', parent=styles['Normal'], fontSize=10, textColor=colors.grey, spaceAfter=16)
+    label_style = ParagraphStyle('InvLabel', parent=styles['Normal'], fontSize=9, textColor=colors.grey)
+    value_style = ParagraphStyle('InvValue', parent=styles['Normal'], fontSize=10)
+    cell_style = ParagraphStyle('InvCell', parent=styles['Normal'], fontSize=9)
+    header_cell = ParagraphStyle('InvHdrCell', parent=styles['Normal'], fontSize=9, textColor=colors.white)
+    total_style = ParagraphStyle('InvTotal', parent=styles['Heading2'], fontSize=14, alignment=2)
+    
+    elements = []
+    
+    # Header
+    elements.append(Paragraph("FAKTURA / INVOICE", title_style))
+    order_num = order.get("order_number", order_id[:8])
+    created = order.get("created_at", "")[:10]
+    elements.append(Paragraph(f"#{order_num} &bull; {created}", subtitle_style))
+    
+    # Seller info
+    elements.append(Paragraph("Prodavac / Seller", label_style))
+    elements.append(Paragraph(seller.get("business_name", ""), value_style))
+    elements.append(Paragraph(seller.get("email", ""), value_style))
+    elements.append(Spacer(1, 10))
+    
+    # Customer info
+    customer = order.get("customer", {})
+    elements.append(Paragraph("Kupac / Customer", label_style))
+    elements.append(Paragraph(customer.get("full_name", ""), value_style))
+    elements.append(Paragraph(f"{customer.get('address', '')}, {customer.get('city', '')} {customer.get('postal_code', '')}", value_style))
+    elements.append(Paragraph(f"Tel: {customer.get('phone', '')} | Email: {customer.get('email', '-')}", value_style))
+    payment = customer.get("payment_method", "cash_on_delivery")
+    pay_label = "Pouzece" if payment == "cash_on_delivery" else "Uplata na racun"
+    elements.append(Paragraph(f"Placanje: {pay_label}", value_style))
+    elements.append(Spacer(1, 16))
+    
+    # Items table
+    header = ["#", "Proizvod", "Kolicina", "Cena (RSD)", "Ukupno (RSD)"]
+    data = [[Paragraph(h, header_cell) for h in header]]
+    
+    items = order.get("items", [])
+    subtotal = 0
+    for i, item in enumerate(items, 1):
+        item_total = item.get("subtotal", item.get("price", 0) * item.get("quantity", 1))
+        subtotal += item_total
+        row = [
+            Paragraph(str(i), cell_style),
+            Paragraph(item.get("name", ""), cell_style),
+            Paragraph(str(item.get("quantity", 1)), cell_style),
+            Paragraph(f'{item.get("price", 0):,.0f}', cell_style),
+            Paragraph(f'{item_total:,.0f}', cell_style),
+        ]
+        data.append(row)
+    
+    col_widths = [25, 200, 60, 80, 80]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF5500')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9F9F9')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 12))
+    
+    # Discount + Total
+    discount = order.get("discount", 0)
+    total = order.get("total", subtotal)
+    coupon = order.get("coupon_code", "")
+    
+    if discount > 0:
+        elements.append(Paragraph(f"Medjuzbir: {subtotal:,.0f} RSD", value_style))
+        elements.append(Paragraph(f"Popust ({coupon}): -{discount:,.0f} RSD", value_style))
+    
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"UKUPNO: {total:,.0f} RSD", total_style))
+    elements.append(Spacer(1, 24))
+    
+    # Footer
+    footer_style = ParagraphStyle('InvFooter', parent=styles['Normal'], fontSize=8, textColor=colors.grey, alignment=1)
+    elements.append(Paragraph("Generisano pomocu Narucify platforme | narucify.com", footer_style))
+    
+    doc.build(elements)
+    output.seek(0)
+    
+    filename = f"faktura_{order_num}_{created}.pdf"
     return StreamingResponse(
         output,
         media_type="application/pdf",
