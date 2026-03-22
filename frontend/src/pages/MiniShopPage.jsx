@@ -98,6 +98,13 @@ const translations = {
     addedToWishlist: 'Added to wishlist!',
     removedFromWishlist: 'Removed from wishlist',
     noResults: 'No products found',
+    productDetails: 'Product Details',
+    description: 'Description',
+    price: 'Price',
+    inStock: 'In Stock',
+    backToProducts: 'Back to Products',
+    otherProducts: 'Other Products',
+    category: 'Category',
   },
   sr: {
     catalog: 'Prodavnica',
@@ -154,6 +161,13 @@ const translations = {
     addedToWishlist: 'Dodato u listu \u017eelja!',
     removedFromWishlist: 'Uklonjeno iz liste \u017eelja',
     noResults: 'Nema rezultata',
+    productDetails: 'Detalji proizvoda',
+    description: 'Opis',
+    price: 'Cena',
+    inStock: 'Na stanju',
+    backToProducts: 'Nazad na proizvode',
+    otherProducts: 'Ostali proizvodi',
+    category: 'Kategorija',
   }
 };
 
@@ -574,6 +588,7 @@ export default function MiniShopPage() {
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -1329,7 +1344,7 @@ export default function MiniShopPage() {
           </div>
         )}
         {shop?.shop_show_share && !inCart && product.stock > 0 && (
-          <button onClick={() => shareProduct(product)}
+          <button onClick={(e) => { e.stopPropagation(); shareProduct(product); }}
             className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
             <Share2 className="w-3.5 h-3.5" />
           </button>
@@ -1354,13 +1369,15 @@ export default function MiniShopPage() {
     const inCart = cart.find(item => item.id === product.id);
     if (inCart) {
       return (
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 rounded-lg ${theme.btnOutline}`}
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 ${theme.btnOutline}`}
+            style={{ borderRadius: btnRadius }}
             onClick={() => { inCart.quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, -1); }}>
             {inCart.quantity <= 1 ? <X className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
           </Button>
           <span className={`flex-1 text-center ${theme.textPrimary} font-semibold text-sm`}>{inCart.quantity}</span>
-          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 rounded-lg ${theme.btnOutline}`}
+          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 ${theme.btnOutline}`}
+            style={{ borderRadius: btnRadius }}
             onClick={() => updateQuantity(product.id, 1)} disabled={inCart.quantity >= product.stock}>
             <Plus className="w-3.5 h-3.5" />
           </Button>
@@ -1369,12 +1386,12 @@ export default function MiniShopPage() {
     }
     return (
       <>
-        <Button className={`w-full rounded-lg ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
+        <Button className={`w-full ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} ${theme.accent} gap-1.5`} style={{ borderRadius: btnRadius }} size="sm" disabled={product.stock <= 0} onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
           <Plus className="w-3.5 h-3.5" />
           {t('addToOrder')}
         </Button>
         {shop?.shop_quick_order && product.stock > 0 && (
-          <Button variant="outline" className={`w-full rounded-lg h-8 text-xs ${theme.btnOutline} gap-1`} size="sm" onClick={() => quickOrder(product)}>
+          <Button variant="outline" className={`w-full h-8 text-xs ${theme.btnOutline} gap-1`} style={{ borderRadius: btnRadius }} size="sm" onClick={(e) => { e.stopPropagation(); quickOrder(product); }}>
             <Zap className="w-3 h-3" />
             {t('orderNow')}
           </Button>
@@ -1419,6 +1436,188 @@ export default function MiniShopPage() {
       </div>
     ) : null
   );
+
+  // ==================== PRODUCT DETAIL VIEW ====================
+  const renderProductDetail = () => {
+    if (!selectedProduct) return null;
+    const product = selectedProduct;
+    const images = product.images && product.images.length > 0 ? product.images : (product.image_url ? [product.image_url] : []);
+    const currentIdx = imageIndexes[product.id] || 0;
+    const inCart = cart.find(item => item.id === product.id);
+    const otherProducts = (shop?.products || []).filter(p => p.id !== product.id).slice(0, 8);
+
+    return (
+      <div className={`min-h-screen ${theme.bg}`} style={{ fontFamily }} data-testid="product-detail-page">
+        {renderAnnouncement()}
+        <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-3`}>
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProduct(null); window.scrollTo(0, 0); }} className={`${theme.textSecondary} rounded-full`}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className={`font-bold ${theme.textPrimary} text-sm truncate`}>{t('backToProducts')}</h1>
+            <div className="ml-auto flex items-center gap-2">
+              {cart.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setCartOpen(!cartOpen)} className={`relative ${theme.textPrimary} rounded-full`}>
+                  <ShoppingCart className="w-5 h-5" />
+                  <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>{getItemCount()}</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')} className={`${theme.textSecondary} rounded-full`}>
+                <Globe className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 py-6 pb-32">
+          <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} ${cardClass} overflow-hidden`}>
+            {/* Image gallery */}
+            <div className="relative aspect-square md:aspect-[4/3] overflow-hidden bg-black/5">
+              {images.length > 0 ? (
+                <img src={images[currentIdx]} alt={product.name} className="w-full h-full object-contain" />
+              ) : (
+                <div className={`w-full h-full ${theme.imgPlaceholder} flex items-center justify-center`}>
+                  <Package className={`w-16 h-16 ${theme.emptyIcon}`} />
+                </div>
+              )}
+              {images.length > 1 && (
+                <>
+                  <button onClick={() => setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx - 1 + images.length) % images.length }))}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/60 transition-colors">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx + 1) % images.length }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/60 transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {images.map((_, i) => (
+                      <button key={i} onClick={() => setImageIndexes(prev => ({ ...prev, [product.id]: i }))}
+                        className={`w-2 h-2 rounded-full transition-all ${i === currentIdx ? 'bg-white w-5' : 'bg-white/50'}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+              {/* Thumbnail strip */}
+              {images.length > 1 && (
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-2 bg-black/30 backdrop-blur-sm rounded-lg p-1.5">
+                  {images.map((img, i) => (
+                    <button key={i} onClick={() => setImageIndexes(prev => ({ ...prev, [product.id]: i }))}
+                      className={`w-10 h-10 rounded-md overflow-hidden border-2 transition-all ${i === currentIdx ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Badges */}
+              {product.stock <= 0 && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
+                  <span className={`px-4 py-2 rounded-full text-sm font-medium ${theme.badgeOutOfStock}`}>{t('outOfStock')}</span>
+                </div>
+              )}
+              {product.old_price && product.old_price > product.price && product.stock > 0 && (
+                <div className="absolute top-4 left-4 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold shadow-lg flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5" /> {t('onSale')}
+                </div>
+              )}
+            </div>
+
+            {/* Product info */}
+            <div className="p-5 md:p-8 space-y-4">
+              {product.category && (
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${theme.accentLight}`}>{product.category}</span>
+              )}
+              <h2 className={`text-2xl md:text-3xl font-bold ${theme.textPrimary}`} style={{ fontFamily }}>{product.name}</h2>
+
+              {/* Price section */}
+              <div className="flex items-baseline gap-3">
+                <span className={`text-3xl font-bold ${product.old_price && product.old_price > product.price ? 'text-red-500' : theme.textPrice}`}>
+                  {formatCurrency(product.price)}
+                </span>
+                {product.old_price && product.old_price > product.price && (
+                  <span className={`text-lg ${theme.textSecondary} line-through`}>{formatCurrency(product.old_price)}</span>
+                )}
+              </div>
+
+              {/* Stock info */}
+              {product.stock > 0 && (
+                <p className={`text-sm ${product.stock <= 3 ? 'text-amber-600 font-medium' : theme.textSecondary}`}>
+                  {product.stock <= 3 ? t('lastItems').replace('{n}', product.stock) : `${t('inStock')} (${product.stock})`}
+                </p>
+              )}
+
+              {/* Description */}
+              {product.description && (
+                <div className={`pt-4 border-t ${theme.divider}`}>
+                  <h3 className={`text-sm font-semibold ${theme.textPrimary} mb-2`}>{t('description')}</h3>
+                  <p className={`${theme.textSecondary} text-sm leading-relaxed whitespace-pre-wrap`}>{product.description}</p>
+                </div>
+              )}
+
+              {/* Cart buttons */}
+              <div className="pt-4 space-y-2 max-w-sm">
+                {renderCartButtons(product)}
+              </div>
+
+              {/* Share & Wishlist */}
+              <div className="flex items-center gap-3 pt-2">
+                {shop?.shop_show_share && (
+                  <Button variant="outline" size="sm" className={`${theme.btnOutline} gap-1.5`} style={{ borderRadius: btnRadius }} onClick={() => shareProduct(product)}>
+                    <Share2 className="w-4 h-4" /> {t('share')}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" className={`${theme.btnOutline} gap-1.5 ${isWishlisted(product.id) ? 'text-red-500 border-red-200' : ''}`} style={{ borderRadius: btnRadius }} onClick={() => toggleWishlist(product.id)}>
+                  <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? 'fill-red-500' : ''}`} /> {t('wishlist')}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Other products */}
+          {otherProducts.length > 0 && (
+            <div className="mt-8">
+              <h3 className={`text-lg font-semibold ${theme.textPrimary} mb-4`}>{t('otherProducts')}</h3>
+              <div className={`grid grid-cols-2 md:grid-cols-4 gap-3`}>
+                {otherProducts.map((p, index) => {
+                  const pInCart = cart.find(item => item.id === p.id);
+                  return (
+                    <div key={p.id} className={`group rounded-xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} cursor-pointer transition-all duration-300`}
+                      onClick={() => { setSelectedProduct(p); setImageIndexes(prev => ({ ...prev, [p.id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}>
+                      <div className="relative aspect-square overflow-hidden">
+                        {renderProductImage(p)}
+                        {pInCart && (
+                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full ${theme.badge} flex items-center justify-center text-[10px] font-bold shadow`}>
+                            {pInCart.quantity}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2.5">
+                        <h4 className={`text-xs font-medium ${theme.textPrimary} line-clamp-2 mb-1`} style={{ fontFamily }}>{p.name}</h4>
+                        <span className={`text-sm font-bold ${p.old_price && p.old_price > p.price ? 'text-red-500' : theme.textPrice}`}>
+                          {formatCurrency(p.price)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </main>
+
+        {renderAboutSection()}
+        {renderFooter()}
+        {renderCartBar()}
+        {renderStyles()}
+      </div>
+    );
+  };
+
+  // Product detail takes precedence over all templates
+  if (selectedProduct) {
+    return renderProductDetail();
+  }
 
   // ==================== BOUTIQUE TEMPLATE ====================
   if (layout === 'boutique') {
@@ -1466,8 +1665,8 @@ export default function MiniShopPage() {
         {/* Featured product - first product displayed large */}
         {displayProducts.length > 0 && (
           <div className="max-w-4xl mx-auto px-4 pt-8">
-            <div className={`group rounded-3xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow}`}
-              style={{ animation: 'catalogFadeIn 0.4s ease-out forwards' }}>
+            <div className={`group rounded-3xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} cursor-pointer`}
+              style={{ animation: 'catalogFadeIn 0.4s ease-out forwards' }} onClick={() => { setSelectedProduct(displayProducts[0]); setImageIndexes(prev => ({ ...prev, [displayProducts[0].id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
               <div className="grid md:grid-cols-2">
                 <div className="relative aspect-square md:aspect-auto md:min-h-[400px] overflow-hidden">
                   {renderProductImage(displayProducts[0], "w-full h-full object-cover group-hover:scale-105 transition-transform duration-700")}
@@ -1510,14 +1709,15 @@ export default function MiniShopPage() {
           {renderSearchFilters()}
           <div className="grid grid-cols-2 gap-6">
             {(displayProducts.length > 1 ? displayProducts.slice(1) : displayProducts).map((product, index) => (
-              <div key={product.id} className={`group rounded-2xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300`}
-                style={{ animationDelay: `${index * 0.08}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}>
+              <div key={product.id} className={`group rounded-2xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} cursor-pointer transition-all duration-300`}
+                style={{ animationDelay: `${index * 0.08}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
+                onClick={() => { setSelectedProduct(product); setImageIndexes(prev => ({ ...prev, [product.id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                 <div className="relative aspect-[3/4] overflow-hidden">
                   {renderProductImage(product)}
                   {renderBadges(product)}
                 </div>
                 <div className="p-4">
-                  <h3 className={`font-light ${theme.textPrimary} text-sm tracking-wide mb-1 line-clamp-1`}>{product.name}</h3>
+                  <h3 className={`font-light ${theme.textPrimary} text-sm tracking-wide mb-1 line-clamp-1`} style={{ fontFamily }}>{product.name}</h3>
                   <div className="flex items-baseline gap-2 mb-3">
                     <span className={`text-base font-semibold ${product.old_price && product.old_price > product.price ? 'text-red-500' : theme.textPrice}`}>
                       {formatCurrency(product.price)}
@@ -1587,18 +1787,19 @@ export default function MiniShopPage() {
             {displayProducts.map((product, index) => {
               const isLarge = index % 5 === 0;
               return (
-                <div key={product.id} className={`group relative mb-2 md:mb-3 rounded-xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} break-inside-avoid transition-all duration-300`}
-                  style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}>
+                <div key={product.id} className={`group relative mb-2 md:mb-3 rounded-xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} cursor-pointer break-inside-avoid transition-all duration-300`}
+                  style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
+                  onClick={() => { setSelectedProduct(product); setImageIndexes(prev => ({ ...prev, [product.id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                   <div className={`relative ${isLarge ? 'aspect-[3/4]' : 'aspect-square'} overflow-hidden`}>
                     {renderProductImage(product)}
                     {renderBadges(product)}
                     {/* Hover overlay with info */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                      <h3 className="font-medium text-white text-sm leading-tight mb-1 line-clamp-2">{product.name}</h3>
+                      <h3 className="font-medium text-white text-sm leading-tight mb-1 line-clamp-2" style={{ fontFamily }}>{product.name}</h3>
                       <div className="flex items-center justify-between">
                         <span className={`text-base font-bold text-white`}>{formatCurrency(product.price)}</span>
                         {product.stock > 0 && (
-                          <Button size="sm" className="h-8 w-8 p-0 rounded-full bg-white text-black hover:bg-white/90" onClick={() => addToCart(product)}>
+                          <Button size="sm" className="h-8 w-8 p-0 bg-white text-black hover:bg-white/90" style={{ borderRadius: btnRadius }} onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
                             <Plus className="w-4 h-4" />
                           </Button>
                         )}
@@ -1607,7 +1808,7 @@ export default function MiniShopPage() {
                   </div>
                   {/* Always visible minimal info below image */}
                   <div className="p-2">
-                    <p className={`text-xs ${theme.textPrimary} line-clamp-1`}>{product.name}</p>
+                    <p className={`text-xs ${theme.textPrimary} line-clamp-1`} style={{ fontFamily }}>{product.name}</p>
                     <p className={`text-xs font-semibold ${theme.textPrice}`}>{formatCurrency(product.price)}</p>
                   </div>
                 </div>
@@ -1717,17 +1918,18 @@ export default function MiniShopPage() {
               <p className={`text-sm ${theme.textSecondary}`}>{t('noResults')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className={`grid ${gridColsClass} gap-3`}>
               {displayProducts.map((product, index) => (
-                <div key={product.id} className={`group rounded-lg overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-200`}
-                  style={{ animationDelay: `${index * 0.03}s`, animation: 'catalogFadeIn 0.3s ease-out forwards', opacity: 0 }}>
+                <div key={product.id} className={`group rounded-lg overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} cursor-pointer transition-all duration-200`}
+                  style={{ animationDelay: `${index * 0.03}s`, animation: 'catalogFadeIn 0.3s ease-out forwards', opacity: 0 }}
+                  onClick={() => { setSelectedProduct(product); setImageIndexes(prev => ({ ...prev, [product.id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                   <div className="relative aspect-square overflow-hidden">
                     {renderProductImage(product)}
                     {renderBadges(product)}
                   </div>
                   <div className="p-2.5">
-                    <h3 className={`font-medium ${theme.textPrimary} text-xs leading-tight mb-1 line-clamp-2`}>{product.name}</h3>
-                    {product.description && (
+                    <h3 className={`font-medium ${theme.textPrimary} text-xs leading-tight mb-1 line-clamp-2`} style={{ fontFamily }}>{product.name}</h3>
+                    {product.description && shopShowDesc && (
                       <p className={`text-[10px] ${theme.textSecondary} line-clamp-1 mb-1`}>{product.description}</p>
                     )}
                     <div className="flex items-baseline gap-1.5 mb-2">
@@ -1934,8 +2136,9 @@ export default function MiniShopPage() {
               return (
                 <div
                   key={product.id}
-                  className={`group ${layout === 'list' ? 'flex rounded-xl' : 'rounded-2xl'} overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} transition-all duration-300 ${isFeatured ? 'col-span-2 md:col-span-3' : ''}`}
+                  className={`group ${layout === 'list' ? 'flex rounded-xl' : 'rounded-2xl'} overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} cursor-pointer transition-all duration-300 ${isFeatured ? 'col-span-2 md:col-span-3' : ''}`}
                   style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
+                  onClick={() => { setSelectedProduct(product); setImageIndexes(prev => ({ ...prev, [product.id]: 0 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 >
                   {/* Image */}
                   <div className={`relative overflow-hidden ${
@@ -2008,7 +2211,7 @@ export default function MiniShopPage() {
                     )}
                     {/* Share button */}
                     {shop?.shop_show_share && !inCart && product.stock > 0 && (
-                      <button onClick={() => shareProduct(product)}
+                      <button onClick={(e) => { e.stopPropagation(); shareProduct(product); }}
                         className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                         <Share2 className="w-3.5 h-3.5" />
                       </button>
@@ -2045,15 +2248,17 @@ export default function MiniShopPage() {
                       )}
                     </div>
 
-                    <div className="mt-3 space-y-1.5">
+                    <div className="mt-3 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                       {inCart ? (
                         <div className="flex items-center gap-1.5">
-                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 rounded-lg ${theme.btnOutline}`}
+                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 ${theme.btnOutline}`}
+                            style={{ borderRadius: btnRadius }}
                             onClick={() => { inCart.quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, -1); }}>
                             {inCart.quantity <= 1 ? <X className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
                           </Button>
                           <span className={`flex-1 text-center ${theme.textPrimary} font-semibold text-sm`}>{inCart.quantity}</span>
-                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 rounded-lg ${theme.btnOutline}`}
+                          <Button size="sm" variant="outline" className={`h-9 w-9 p-0 ${theme.btnOutline}`}
+                            style={{ borderRadius: btnRadius }}
                             onClick={() => updateQuantity(product.id, 1)} disabled={inCart.quantity >= product.stock}>
                             <Plus className="w-3.5 h-3.5" />
                           </Button>
@@ -2064,9 +2269,8 @@ export default function MiniShopPage() {
                             <Plus className="w-3.5 h-3.5" />
                             {t('addToOrder')}
                           </Button>
-                          {/* Quick order button */}
                           {shop?.shop_quick_order && product.stock > 0 && (
-                            <Button variant="outline" className={`w-full rounded-lg h-8 text-xs ${theme.btnOutline} gap-1`} size="sm" onClick={() => quickOrder(product)}>
+                            <Button variant="outline" className={`w-full h-8 text-xs ${theme.btnOutline} gap-1`} style={{ borderRadius: btnRadius }} size="sm" onClick={() => quickOrder(product)}>
                               <Zap className="w-3 h-3" />
                               {t('orderNow')}
                             </Button>
