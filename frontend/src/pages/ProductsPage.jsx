@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -16,13 +17,14 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
 
 export default function ProductsPage() {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -208,11 +210,35 @@ export default function ProductsPage() {
             onClick={() => openDialog()} 
             className="primary-gradient hover:opacity-90 gap-2"
             data-testid="add-product-btn"
+            disabled={user?.plan_limits?.max_products && products.length >= user.plan_limits.max_products}
           >
             <Plus className="w-4 h-4" />
             {t('addProduct')}
           </Button>
         </div>
+
+        {/* Plan limit warning */}
+        {user?.plan_limits?.max_products && user.plan_limits.max_products < 999999 && (
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
+            products.length >= user.plan_limits.max_products 
+              ? 'bg-red-500/10 border border-red-500/20 text-red-400' 
+              : products.length >= user.plan_limits.max_products * 0.8
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                : 'bg-zinc-800 border border-zinc-700 text-zinc-400'
+          }`}>
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>
+              {language === 'sr' 
+                ? `${products.length} / ${user.plan_limits.max_products} proizvoda (${user.plan || 'starter'} plan)` 
+                : `${products.length} / ${user.plan_limits.max_products} products (${user.plan || 'starter'} plan)`}
+              {products.length >= user.plan_limits.max_products && (
+                <span className="ml-2 font-semibold">
+                  {language === 'sr' ? '— Nadogradi plan za više!' : '— Upgrade plan for more!'}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
 
         {/* Search */}
         {products.length > 0 && (

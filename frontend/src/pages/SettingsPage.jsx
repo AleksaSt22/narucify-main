@@ -135,12 +135,14 @@ export default function SettingsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscription') === 'success') {
+      const planFromUrl = params.get('plan') || '';
       const verifySubscription = async () => {
         setPaypalLoading(true);
         try {
           const res = await axios.post(`${API_URL}/payments/paypal/verify-subscription`);
           if (res.data.status === 'ACTIVE') {
-            toast.success(language === 'sr' ? 'PRO plan aktiviran! 🎉' : 'PRO plan activated! 🎉');
+            const planLabel = res.data.plan === 'biznis' ? 'Biznis' : 'Rast';
+            toast.success(language === 'sr' ? `${planLabel} plan aktiviran! 🎉` : `${planLabel} plan activated! 🎉`);
             await refreshUser();
           } else {
             toast.info(language === 'sr' ? 'Pretplata još nije aktivna. Pokušaj ponovo za minut.' : 'Subscription not active yet. Try again in a minute.');
@@ -546,6 +548,7 @@ export default function SettingsPage() {
   const proPrice = '9.99';
   const regularPrice = '45.93';
   const [paypalLoading, setPaypalLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null); // 'rast' or 'biznis'
 
   const hasFeatureAccess = (featureKey) => {
     return user?.features?.[featureKey] === true || user?.is_pro;
@@ -1311,17 +1314,26 @@ export default function SettingsPage() {
                 {language === 'sr' ? 'Tema prodavnice' : 'Shop Theme'}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Object.entries(themeDisplayInfo).map(([key, info]) => (
+                {Object.entries(themeDisplayInfo).map(([key, info]) => {
+                  const themeAllowed = !user?.plan_limits?.themes || user.plan_limits.themes.includes(key);
+                  return (
                   <button
                     key={key}
-                    onClick={() => saveShopTheme(key)}
+                    onClick={() => themeAllowed ? saveShopTheme(key) : toast.error(language === 'sr' ? `Tema "${info.label}" zahteva viši plan` : `Theme "${info.label}" requires a higher plan`)}
                     disabled={savingTheme}
                     className={`relative p-3 rounded-xl border-2 transition-all text-left ${
                       currentTheme === key 
                         ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
-                        : 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                        : themeAllowed
+                          ? 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                          : 'border-zinc-800 bg-zinc-900/50 opacity-50'
                     }`}
                   >
+                    {!themeAllowed && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-zinc-700 flex items-center justify-center">
+                        <Lock className="w-3 h-3 text-zinc-400" />
+                      </div>
+                    )}
                     {currentTheme === key && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                         <Check className="w-3 h-3 text-white" />
@@ -1336,7 +1348,8 @@ export default function SettingsPage() {
                     <p className="font-medium text-white text-sm">{info.label}</p>
                     <p className="text-xs text-zinc-500 mt-0.5">{info.desc}</p>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1352,17 +1365,25 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Object.entries(layoutDisplayInfo).map(([key, info]) => {
                   const Icon = info.icon;
+                  const layoutAllowed = !user?.plan_limits?.layouts || user.plan_limits.layouts.includes(key);
                   return (
                     <button
                       key={key}
-                      onClick={() => saveShopLayout(key)}
+                      onClick={() => layoutAllowed ? saveShopLayout(key) : toast.error(language === 'sr' ? `Šablon "${info.label}" zahteva Biznis plan` : `Layout "${info.label}" requires Biznis plan`)}
                       disabled={savingLayout}
                       className={`relative p-3 rounded-xl border-2 transition-all text-left ${
                         currentLayout === key 
                           ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
-                          : 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                          : layoutAllowed
+                            ? 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                            : 'border-zinc-800 bg-zinc-900/50 opacity-50'
                       }`}
                     >
+                      {!layoutAllowed && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-zinc-700 flex items-center justify-center">
+                          <Lock className="w-3 h-3 text-zinc-400" />
+                        </div>
+                      )}
                       {currentLayout === key && (
                         <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />
@@ -1383,7 +1404,15 @@ export default function SettingsPage() {
             </div>
 
             {/* ========== SHOP CUSTOMIZER ========== */}
-            <div className="pt-4 border-t border-zinc-800">
+            <div className={`pt-4 border-t border-zinc-800 ${!user?.plan_limits?.customizer ? 'relative' : ''}`}>
+              {!user?.plan_limits?.customizer && (
+                <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+                  <div className="text-center p-4">
+                    <Lock className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
+                    <p className="text-zinc-400 text-sm font-medium">{language === 'sr' ? 'Shop Customizer zahteva Rast ili Biznis plan' : 'Shop Customizer requires Rast or Biznis plan'}</p>
+                  </div>
+                </div>
+              )}
               <p className="text-sm text-zinc-400 flex items-center gap-2 mb-1">
                 <SlidersHorizontal className="w-4 h-4" />
                 {language === 'sr' ? 'Napredna podešavanja prodavnice' : 'Advanced Shop Customizer'}
@@ -1944,106 +1973,203 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* PRO Plan Banner */}
-        <div className="premium-card-glow rounded-2xl p-[1px] animate-fade-in">
-          <div className="bg-zinc-900 rounded-2xl p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
-                  <Crown className="w-7 h-7 text-white" />
+        {/* Subscription Plans */}
+        <div className="animate-fade-in">
+          <div className="flex items-center gap-2 mb-2">
+            <Crown className="w-6 h-6 text-amber-500" />
+            <h2 className="text-2xl font-bold font-heading text-white">
+              {language === 'sr' ? 'Izaberi plan' : 'Choose a plan'}
+            </h2>
+          </div>
+          {user?.trial_active && user?.plan === 'starter' && (
+            <p className="text-amber-400 text-sm mb-4 flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              {language === 'sr' 
+                ? `Starter probni period: još ${user.trial_days_left} dana` 
+                : `Starter trial: ${user.trial_days_left} days left`}
+            </p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {/* Starter Plan */}
+            <div className={`relative rounded-2xl border ${user?.plan === 'starter' ? 'border-zinc-500 ring-2 ring-zinc-500' : 'border-zinc-800'} bg-zinc-900 p-6 flex flex-col`}>
+              {user?.plan === 'starter' && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-zinc-600 text-white border-0 text-xs">{language === 'sr' ? 'Trenutni plan' : 'Current plan'}</Badge>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold font-heading text-white flex items-center gap-2">
-                    PRO Plan
-                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
-                      {language === 'sr' ? 'Uštedi 70%' : 'Save 70%'}
-                    </Badge>
-                  </h2>
-                  <p className="text-zinc-400 mt-1">
-                    {language === 'sr' 
-                      ? 'Sve premium funkcije na jednom mestu' 
-                      : 'All premium features in one place'}
-                  </p>
-                  <div className="flex items-center gap-3 mt-3">
-                    <span className="text-3xl font-bold text-white">{proPrice}€</span>
-                    <span className="text-zinc-500 line-through">{regularPrice}€</span>
-                    <span className="text-sm text-zinc-400">/ {language === 'sr' ? 'mesečno' : 'month'}</span>
-                  </div>
-                </div>
+              )}
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-white">Starter</h3>
+                <p className="text-zinc-500 text-sm mt-1">{language === 'sr' ? 'Za početnike' : 'For beginners'}</p>
               </div>
-              {user?.is_pro ? (
-                <div className="flex gap-3 items-center">
-                  <Button 
-                    size="lg" 
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 h-12 cursor-default"
-                    data-testid="activate-pro-btn"
-                    disabled
-                  >
-                    <Check className="w-5 h-5 mr-2" /> PRO {language === 'sr' ? 'Aktivan' : 'Active'}
+              <div className="flex items-baseline gap-1 mb-4">
+                <span className="text-3xl font-bold text-white">{language === 'sr' ? 'Besplatno' : 'Free'}</span>
+              </div>
+              <div className="flex-1 space-y-2 mb-6 text-sm">
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '15 proizvoda' : '15 products'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '10 u prodavnici' : '10 in shop'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '6 tema' : '6 themes'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '4 šablona' : '4 templates'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '21 dan probni period' : '21 day trial'}</div>
+                <div className="flex items-center gap-2 text-zinc-500"><Lock className="w-4 h-4 shrink-0" />{language === 'sr' ? 'Vodeni žig na prodavnici' : 'Watermark on shop'}</div>
+                <div className="flex items-center gap-2 text-zinc-500"><Lock className="w-4 h-4 shrink-0" />{language === 'sr' ? 'Bez customizera' : 'No customizer'}</div>
+              </div>
+              {user?.plan === 'starter' ? (
+                <Button disabled className="w-full bg-zinc-700 text-zinc-400 cursor-default">
+                  <Check className="w-4 h-4 mr-2" />{language === 'sr' ? 'Aktivan' : 'Active'}
+                </Button>
+              ) : (
+                <Button disabled className="w-full border-zinc-700 text-zinc-500" variant="outline">
+                  {language === 'sr' ? 'Osnovni plan' : 'Basic plan'}
+                </Button>
+              )}
+            </div>
+
+            {/* Rast Plan */}
+            <div className={`relative rounded-2xl border ${user?.plan === 'rast' ? 'border-blue-500 ring-2 ring-blue-500' : 'border-zinc-700'} bg-zinc-900 p-6 flex flex-col`}>
+              {user?.plan === 'rast' && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-blue-600 text-white border-0 text-xs">{language === 'sr' ? 'Trenutni plan' : 'Current plan'}</Badge>
+                </div>
+              )}
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  Rast
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">{language === 'sr' ? 'Popularan' : 'Popular'}</Badge>
+                </h3>
+                <p className="text-zinc-500 text-sm mt-1">{language === 'sr' ? 'Za rastuće biznise' : 'For growing businesses'}</p>
+              </div>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-3xl font-bold text-white">2.499</span>
+                <span className="text-zinc-400 text-sm">RSD</span>
+              </div>
+              <p className="text-zinc-500 text-xs mb-4">≈ 21.99 EUR / {language === 'sr' ? 'mesečno' : 'month'}</p>
+              <div className="flex-1 space-y-2 mb-6 text-sm">
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '50 proizvoda' : '50 products'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '50 u prodavnici' : '50 in shop'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '6 tema' : '6 themes'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? '4 šablona' : '4 templates'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-blue-400 shrink-0" />{language === 'sr' ? 'Shop Customizer' : 'Shop Customizer'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-blue-400 shrink-0" />{language === 'sr' ? 'Manji vodeni žig' : 'Small watermark'}</div>
+                <div className="flex items-center gap-2 text-zinc-500"><Lock className="w-4 h-4 shrink-0" />{language === 'sr' ? 'Premium teme zaključane' : 'Premium themes locked'}</div>
+              </div>
+              {user?.plan === 'rast' ? (
+                <div className="space-y-2">
+                  <Button disabled className="w-full bg-blue-600 text-white cursor-default">
+                    <Check className="w-4 h-4 mr-2" />{language === 'sr' ? 'Aktivan' : 'Active'}
                   </Button>
                   {user?.paypal_subscription_status === 'ACTIVE' && (
                     <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-400 border-red-400/30 hover:bg-red-500/10"
+                      variant="outline" size="sm"
+                      className="w-full text-red-400 border-red-400/30 hover:bg-red-500/10 text-xs"
                       disabled={paypalLoading}
                       onClick={async () => {
-                        if (!window.confirm(language === 'sr' ? 'Da li sigurno želiš da otkažeš PRO pretplatu?' : 'Are you sure you want to cancel PRO subscription?')) return;
+                        if (!window.confirm(language === 'sr' ? 'Otkazati pretplatu?' : 'Cancel subscription?')) return;
                         setPaypalLoading(true);
                         try {
                           await axios.post(`${API_URL}/payments/paypal/cancel-subscription`);
-                          toast.success(language === 'sr' ? 'Pretplata otkazana. PRO ostaje do kraja perioda.' : 'Subscription cancelled. PRO stays until end of period.');
+                          toast.success(language === 'sr' ? 'Pretplata otkazana.' : 'Subscription cancelled.');
                           await refreshUser();
-                        } catch (err) {
-                          toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška' : 'Error'));
-                        } finally {
-                          setPaypalLoading(false);
-                        }
+                        } catch (err) { toast.error(err.response?.data?.detail || 'Error'); }
+                        finally { setPaypalLoading(false); }
                       }}
                     >
-                      {paypalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Otkaži pretplatu' : 'Cancel subscription')}
+                      {paypalLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : (language === 'sr' ? 'Otkaži pretplatu' : 'Cancel')}
                     </Button>
                   )}
                 </div>
               ) : (
                 <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold px-8 h-12"
-                  data-testid="activate-pro-btn"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
                   disabled={paypalLoading}
                   onClick={async () => {
                     setPaypalLoading(true);
                     try {
-                      const res = await axios.post(`${API_URL}/payments/paypal/create-subscription`);
-                      const approveUrl = res.data.approve_url;
-                      if (approveUrl) {
-                        window.location.href = approveUrl;
-                      } else {
-                        toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured');
-                        setPaypalLoading(false);
-                      }
-                    } catch (err) {
-                      toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri plaćanju' : 'Payment error'));
-                      setPaypalLoading(false);
-                    }
+                      const res = await axios.post(`${API_URL}/payments/paypal/create-subscription`, { plan: 'rast' });
+                      if (res.data.approve_url) { window.location.href = res.data.approve_url; }
+                      else { toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured'); setPaypalLoading(false); }
+                    } catch (err) { toast.error(err.response?.data?.detail || 'Error'); setPaypalLoading(false); }
                   }}
                 >
-                  {paypalLoading ? (
-                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />{language === 'sr' ? 'Obrada...' : 'Processing...'}</>
-                  ) : (
-                    <><Zap className="w-5 h-5 mr-2" />{language === 'sr' ? 'Pretplati se preko PayPal-a' : 'Subscribe with PayPal'}</>
-                  )}
+                  {paypalLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                  {user?.plan === 'biznis' 
+                    ? (language === 'sr' ? 'Downgrade' : 'Downgrade') 
+                    : (language === 'sr' ? 'Pretplati se' : 'Subscribe')}
                 </Button>
               )}
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-zinc-800">
-              {premiumFeatures.slice(0, 8).map(f => (
-                <div key={f.key} className="flex items-center gap-2 text-sm text-zinc-300">
-                  <Check className="w-4 h-4 text-green-500" />
-                  {f.title}
+
+            {/* Biznis Plan */}
+            <div className={`relative rounded-2xl border ${user?.plan === 'biznis' ? 'border-amber-500 ring-2 ring-amber-500' : 'border-amber-500/30'} bg-zinc-900 p-6 flex flex-col`}>
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                {user?.plan === 'biznis' ? (
+                  <Badge className="bg-amber-600 text-white border-0 text-xs">{language === 'sr' ? 'Trenutni plan' : 'Current plan'}</Badge>
+                ) : (
+                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-xs">{language === 'sr' ? 'Najbolja vrednost' : 'Best value'}</Badge>
+                )}
+              </div>
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  Biznis
+                  <Crown className="w-5 h-5 text-amber-500" />
+                </h3>
+                <p className="text-zinc-500 text-sm mt-1">{language === 'sr' ? 'Za ozbiljne prodavce' : 'For serious sellers'}</p>
+              </div>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-3xl font-bold text-white">3.899</span>
+                <span className="text-zinc-400 text-sm">RSD</span>
+              </div>
+              <p className="text-zinc-500 text-xs mb-4">≈ 33.99 EUR / {language === 'sr' ? 'mesečno' : 'month'}</p>
+              <div className="flex-1 space-y-2 mb-6 text-sm">
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? 'Neograničeni proizvodi' : 'Unlimited products'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-green-500 shrink-0" />{language === 'sr' ? 'Neograničeni u prodavnici' : 'Unlimited in shop'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-amber-400 shrink-0" />{language === 'sr' ? 'Svih 12 tema' : 'All 12 themes'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-amber-400 shrink-0" />{language === 'sr' ? 'Svih 7 šablona' : 'All 7 templates'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-amber-400 shrink-0" />{language === 'sr' ? 'Potpuni customizer' : 'Full customizer'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-amber-400 shrink-0" />{language === 'sr' ? 'Bez vodenog žiga' : 'No watermark'}</div>
+                <div className="flex items-center gap-2 text-zinc-300"><Check className="w-4 h-4 text-amber-400 shrink-0" />{language === 'sr' ? 'PRO badge na prodavnici' : 'PRO badge on shop'}</div>
+              </div>
+              {user?.plan === 'biznis' ? (
+                <div className="space-y-2">
+                  <Button disabled className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white cursor-default">
+                    <Check className="w-4 h-4 mr-2" />{language === 'sr' ? 'Aktivan' : 'Active'}
+                  </Button>
+                  {user?.paypal_subscription_status === 'ACTIVE' && (
+                    <Button
+                      variant="outline" size="sm"
+                      className="w-full text-red-400 border-red-400/30 hover:bg-red-500/10 text-xs"
+                      disabled={paypalLoading}
+                      onClick={async () => {
+                        if (!window.confirm(language === 'sr' ? 'Otkazati pretplatu?' : 'Cancel subscription?')) return;
+                        setPaypalLoading(true);
+                        try {
+                          await axios.post(`${API_URL}/payments/paypal/cancel-subscription`);
+                          toast.success(language === 'sr' ? 'Pretplata otkazana.' : 'Subscription cancelled.');
+                          await refreshUser();
+                        } catch (err) { toast.error(err.response?.data?.detail || 'Error'); }
+                        finally { setPaypalLoading(false); }
+                      }}
+                    >
+                      {paypalLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : (language === 'sr' ? 'Otkaži pretplatu' : 'Cancel')}
+                    </Button>
+                  )}
                 </div>
-              ))}
+              ) : (
+                <Button 
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold"
+                  disabled={paypalLoading}
+                  onClick={async () => {
+                    setPaypalLoading(true);
+                    try {
+                      const res = await axios.post(`${API_URL}/payments/paypal/create-subscription`, { plan: 'biznis' });
+                      if (res.data.approve_url) { window.location.href = res.data.approve_url; }
+                      else { toast.error(language === 'sr' ? 'PayPal nije konfigurisan' : 'PayPal not configured'); setPaypalLoading(false); }
+                    } catch (err) { toast.error(err.response?.data?.detail || 'Error'); setPaypalLoading(false); }
+                  }}
+                >
+                  {paypalLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+                  {language === 'sr' ? 'Pretplati se' : 'Subscribe'}
+                </Button>
+              )}
             </div>
           </div>
         </div>

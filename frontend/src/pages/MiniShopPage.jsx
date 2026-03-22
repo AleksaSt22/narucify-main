@@ -857,7 +857,8 @@ export default function MiniShopPage() {
     );
   }
 
-  const showWatermark = !shop?.is_pro;
+  // show_watermark: true = full watermark (starter), "small" = smaller watermark (rast), false = no watermark (biznis)
+  const showWatermark = shop?.show_watermark !== false;
 
   // Share product link helper
   const shareProduct = (product) => {

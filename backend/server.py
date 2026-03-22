@@ -163,8 +163,68 @@ PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
 PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com" if PAYPAL_MODE == "sandbox" else "https://api-m.paypal.com"
-PAYPAL_PLAN_ID = os.environ.get('PAYPAL_PLAN_ID', '')  # Created via /payments/paypal/setup-plan
+PAYPAL_PLAN_ID = os.environ.get('PAYPAL_PLAN_ID', '')  # Legacy single plan
+PAYPAL_PLAN_ID_RAST = os.environ.get('PAYPAL_PLAN_ID_RAST', '')
+PAYPAL_PLAN_ID_BIZNIS = os.environ.get('PAYPAL_PLAN_ID_BIZNIS', '')
 PAYPAL_WEBHOOK_ID = os.environ.get('PAYPAL_WEBHOOK_ID', '')
+
+# ==================== PLAN CONFIGURATION ====================
+PLAN_LIMITS = {
+    "starter": {
+        "max_products": 15,
+        "max_shop_products": 10,
+        "themes": ["elegance", "ocean", "sunset", "nature", "minimal", "arctic"],
+        "layouts": ["classic", "modern", "list", "magazine"],
+        "customizer": False,
+        "watermark": True,
+        "badge": False,
+        "price_eur": "0",
+        "price_rsd": "0",
+    },
+    "rast": {
+        "max_products": 50,
+        "max_shop_products": 50,
+        "themes": ["elegance", "ocean", "sunset", "nature", "minimal", "arctic"],
+        "layouts": ["classic", "modern", "list", "magazine"],
+        "customizer": True,
+        "watermark": "small",
+        "badge": False,
+        "price_eur": "21.99",
+        "price_rsd": "2499",
+    },
+    "biznis": {
+        "max_products": 999999,
+        "max_shop_products": 999999,
+        "themes": ["elegance", "midnight", "sunset", "nature", "ocean", "minimal", "cherry", "lavender", "gold", "arctic", "coffee", "neon"],
+        "layouts": ["classic", "modern", "list", "magazine", "boutique", "showcase", "storefront"],
+        "customizer": True,
+        "watermark": False,
+        "badge": True,
+        "price_eur": "33.99",
+        "price_rsd": "3899",
+    }
+}
+
+def get_user_plan(user: dict) -> str:
+    """Get effective plan for user, considering trial/subscription status."""
+    plan = user.get("plan", "starter")
+    if plan == "starter":
+        return "starter"
+    # For paid plans, check if subscription is still active
+    sub_status = user.get("paypal_subscription_status")
+    if sub_status in ("CANCELLED", "SUSPENDED"):
+        expires = user.get("pro_expires_at")
+        if expires:
+            try:
+                if datetime.fromisoformat(expires) > datetime.now(timezone.utc):
+                    return plan
+            except (ValueError, TypeError):
+                pass
+        return "starter"
+    return plan
+
+def get_plan_limits(plan: str) -> dict:
+    return PLAN_LIMITS.get(plan, PLAN_LIMITS["starter"])
 
 async def get_paypal_access_token():
     async with httpx.AsyncClient() as client_http:
@@ -554,6 +614,7 @@ async def register(data: UserCreate):
     referral_code = generate_referral_code()
     verification_token = str(uuid.uuid4())
     
+    trial_ends = (datetime.now(timezone.utc) + timedelta(days=21)).isoformat()
     user_doc = {
         "id": user_id,
         "email": data.email,
@@ -563,6 +624,8 @@ async def register(data: UserCreate):
         "referral_code": referral_code,
         "referred_by": None,
         "referral_count": 0,
+        "plan": "starter",
+        "trial_ends_at": trial_ends,
         "is_pro": False,
         "pro_expires_at": None,
         "logo_url": None,
@@ -784,6 +847,22 @@ async def get_me(user: dict = Depends(get_current_user)):
         await db.users.update_one({"id": user["id"]}, {"$set": {"badges": badges}})
         user["badges"] = badges
     
+    # Determine effective plan and limits
+    effective_plan = get_user_plan(user)
+    plan_limits = get_plan_limits(effective_plan)
+    
+    # Check trial status
+    trial_ends = user.get("trial_ends_at")
+    trial_active = False
+    trial_days_left = 0
+    if trial_ends and effective_plan == "starter":
+        try:
+            trial_end_dt = datetime.fromisoformat(trial_ends)
+            trial_active = trial_end_dt > datetime.now(timezone.utc)
+            trial_days_left = max(0, (trial_end_dt - datetime.now(timezone.utc)).days)
+        except (ValueError, TypeError):
+            pass
+    
     return {
         "id": user["id"],
         "email": user["email"],
@@ -792,6 +871,11 @@ async def get_me(user: dict = Depends(get_current_user)):
         "referral_code": user.get("referral_code"),
         "referral_count": user.get("referral_count", 0),
         "is_pro": user.get("is_pro", False),
+        "plan": effective_plan,
+        "plan_limits": plan_limits,
+        "trial_ends_at": trial_ends,
+        "trial_active": trial_active,
+        "trial_days_left": trial_days_left,
         "badges": badges,
         "new_badges": new_badges,  # Badges not yet seen
         "logo_url": user.get("logo_url"),
@@ -836,6 +920,8 @@ async def mark_badges_seen(user: dict = Depends(get_current_user)):
 @api_router.put("/auth/profile")
 async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_current_user)):
     update_data = {}
+    plan = get_user_plan(user)
+    limits = get_plan_limits(plan)
     if data.logo_url is not None:
         update_data["logo_url"] = data.logo_url
     if data.default_delivery_days is not None:
@@ -844,11 +930,15 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         valid_themes = ["elegance", "midnight", "sunset", "nature", "ocean", "minimal", "cherry", "lavender", "gold", "arctic", "coffee", "neon"]
         if data.shop_theme not in valid_themes:
             raise HTTPException(status_code=400, detail="Invalid theme")
+        if data.shop_theme not in limits["themes"]:
+            raise HTTPException(status_code=403, detail=f"Tema '{data.shop_theme}' nije dostupna na planu '{plan}'. Nadogradi plan.")
         update_data["shop_theme"] = data.shop_theme
     if data.shop_layout is not None:
         valid_layouts = ["classic", "modern", "list", "magazine", "boutique", "showcase", "storefront"]
         if data.shop_layout not in valid_layouts:
             raise HTTPException(status_code=400, detail="Invalid layout")
+        if data.shop_layout not in limits["layouts"]:
+            raise HTTPException(status_code=403, detail=f"Template '{data.shop_layout}' nije dostupan na planu '{plan}'. Nadogradi plan.")
         update_data["shop_layout"] = data.shop_layout
     if data.shop_description is not None:
         update_data["shop_description"] = data.shop_description[:500]
@@ -872,7 +962,17 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         update_data["shop_vacation_mode"] = data.shop_vacation_mode
     if data.shop_vacation_message is not None:
         update_data["shop_vacation_message"] = data.shop_vacation_message[:300]
-    # Shop customizer fields
+    # Shop customizer fields - require rast/biznis plan
+    customizer_fields_provided = any([
+        data.shop_announcement is not None, data.shop_announcement_bg is not None,
+        data.shop_font is not None, data.shop_button_style is not None,
+        data.shop_card_style is not None, data.shop_header_style is not None,
+        data.shop_products_per_row is not None, data.shop_show_product_description is not None,
+        data.shop_about_text is not None, data.shop_footer_text is not None,
+        data.shop_hero_style is not None
+    ])
+    if customizer_fields_provided and not limits["customizer"]:
+        raise HTTPException(status_code=403, detail="Shop Customizer nije dostupan na Starter planu. Nadogradi na Rast ili Biznis.")
     if data.shop_announcement is not None:
         update_data["shop_announcement"] = data.shop_announcement[:200]
     if data.shop_announcement_bg is not None:
@@ -1128,6 +1228,15 @@ async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
 
 @api_router.post("/products", response_model=ProductResponse)
 async def create_product(data: ProductCreate, user: dict = Depends(get_current_user)):
+    # Check plan product limit
+    plan = get_user_plan(user)
+    limits = get_plan_limits(plan)
+    product_count = await db.products.count_documents({"user_id": user["id"]})
+    if product_count >= limits["max_products"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Plan '{plan}' dozvoljava maksimalno {limits['max_products']} proizvoda. Nadogradi plan za više."
+        )
     product_id = str(uuid.uuid4())
     images = data.images or []
     image_url = data.image_url or (images[0] if images else "")
@@ -1317,10 +1426,16 @@ async def get_public_shop(user_id: str):
         if "category" not in p:
             p["category"] = ""
     
+    # Determine seller plan for watermark
+    seller_plan = get_user_plan(seller)
+    seller_plan_limits = get_plan_limits(seller_plan)
+    
     return {
         "seller_name": seller["business_name"],
         "logo_url": seller.get("logo_url"),
         "is_pro": seller.get("is_pro", False),
+        "plan": seller_plan,
+        "show_watermark": seller_plan_limits["watermark"],
         "shop_theme": seller.get("shop_theme", "elegance"),
         "shop_layout": seller.get("shop_layout", "classic"),
         "shop_description": seller.get("shop_description", ""),
@@ -1357,11 +1472,16 @@ async def toggle_product_in_shop(product_id: str, user: dict = Depends(get_curre
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # Check if adding to shop - limit to 10
+    # Check plan shop product limit
     if not product.get("show_in_shop", False):
+        plan = get_user_plan(user)
+        limits = get_plan_limits(plan)
         shop_count = await db.products.count_documents({"user_id": user["id"], "show_in_shop": True})
-        if shop_count >= 10:
-            raise HTTPException(status_code=400, detail="Maximum 10 products in shop")
+        if shop_count >= limits["max_shop_products"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Plan '{plan}' dozvoljava maksimalno {limits['max_shop_products']} proizvoda u prodavnici. Nadogradi plan."
+            )
     
     new_value = not product.get("show_in_shop", False)
     await db.products.update_one({"id": product_id}, {"$set": {"show_in_shop": new_value}})
@@ -2650,9 +2770,12 @@ async def validate_coupon(user_id: str, data: dict):
 
 # ==================== PAYPAL SUBSCRIPTIONS ====================
 
+class CreateSubscriptionRequest(BaseModel):
+    plan: str  # "rast" or "biznis"
+
 @api_router.post("/payments/paypal/setup-plan")
 async def setup_paypal_plan(user: dict = Depends(get_current_user)):
-    """One-time setup: creates PayPal Product + Plan. Save the plan_id as PAYPAL_PLAN_ID env var."""
+    """One-time setup: creates PayPal Product + 2 Plans (Rast + Biznis). Save plan IDs as env vars."""
     try:
         access_token = await get_paypal_access_token()
         headers = {
@@ -2665,8 +2788,8 @@ async def setup_paypal_plan(user: dict = Depends(get_current_user)):
                 f"{PAYPAL_BASE_URL}/v1/catalogs/products",
                 headers=headers,
                 json={
-                    "name": "Narucify PRO",
-                    "description": "Narucify PRO mesečna pretplata — neograničeni proizvodi, analitika, finansije, export, custom branding",
+                    "name": "Narucify Pretplata",
+                    "description": "Narucify mesečna pretplata za online prodavce",
                     "type": "SERVICE",
                     "category": "SOFTWARE"
                 }
@@ -2674,14 +2797,14 @@ async def setup_paypal_plan(user: dict = Depends(get_current_user)):
             prod_resp.raise_for_status()
             product_id = prod_resp.json()["id"]
             
-            # 2. Create Plan
-            plan_resp = await client_http.post(
+            # 2. Create Rast Plan (21.99 EUR/month)
+            rast_resp = await client_http.post(
                 f"{PAYPAL_BASE_URL}/v1/billing/plans",
                 headers=headers,
                 json={
                     "product_id": product_id,
-                    "name": "Narucify PRO - Mesečno",
-                    "description": "9.99 EUR mesečno, automatsko obnavljanje",
+                    "name": "Narucify Rast - Mesečno",
+                    "description": "2.499 RSD mesečno (21.99 EUR), 50 proizvoda, osnovni customizer",
                     "billing_cycles": [
                         {
                             "frequency": {"interval_unit": "MONTH", "interval_count": 1},
@@ -2689,7 +2812,7 @@ async def setup_paypal_plan(user: dict = Depends(get_current_user)):
                             "sequence": 1,
                             "total_cycles": 0,
                             "pricing_scheme": {
-                                "fixed_price": {"value": "9.99", "currency_code": "EUR"}
+                                "fixed_price": {"value": "21.99", "currency_code": "EUR"}
                             }
                         }
                     ],
@@ -2699,23 +2822,60 @@ async def setup_paypal_plan(user: dict = Depends(get_current_user)):
                     }
                 }
             )
-            plan_resp.raise_for_status()
-            plan_data = plan_resp.json()
+            rast_resp.raise_for_status()
+            rast_data = rast_resp.json()
+            
+            # 3. Create Biznis Plan (33.99 EUR/month)
+            biznis_resp = await client_http.post(
+                f"{PAYPAL_BASE_URL}/v1/billing/plans",
+                headers=headers,
+                json={
+                    "product_id": product_id,
+                    "name": "Narucify Biznis - Mesečno",
+                    "description": "3.899 RSD mesečno (33.99 EUR), neograničeni proizvodi, sve teme, svi šabloni, PRO badge",
+                    "billing_cycles": [
+                        {
+                            "frequency": {"interval_unit": "MONTH", "interval_count": 1},
+                            "tenure_type": "REGULAR",
+                            "sequence": 1,
+                            "total_cycles": 0,
+                            "pricing_scheme": {
+                                "fixed_price": {"value": "33.99", "currency_code": "EUR"}
+                            }
+                        }
+                    ],
+                    "payment_preferences": {
+                        "auto_bill_outstanding": True,
+                        "payment_failure_threshold": 3
+                    }
+                }
+            )
+            biznis_resp.raise_for_status()
+            biznis_data = biznis_resp.json()
             
             return {
                 "product_id": product_id,
-                "plan_id": plan_data["id"],
-                "plan_status": plan_data["status"],
-                "message": f"Plan created! Set PAYPAL_PLAN_ID={plan_data['id']} on Render."
+                "rast_plan_id": rast_data["id"],
+                "rast_plan_status": rast_data["status"],
+                "biznis_plan_id": biznis_data["id"],
+                "biznis_plan_status": biznis_data["status"],
+                "message": f"Plans created! Set PAYPAL_PLAN_ID_RAST={rast_data['id']} and PAYPAL_PLAN_ID_BIZNIS={biznis_data['id']} on Render."
             }
     except Exception as e:
         logger.error(f"PayPal setup plan error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create plans: {str(e)}")
 
 @api_router.post("/payments/paypal/create-subscription")
-async def create_paypal_subscription(user: dict = Depends(get_current_user)):
-    """Create a PayPal subscription for the current user."""
-    if not PAYPAL_PLAN_ID:
+async def create_paypal_subscription(data: CreateSubscriptionRequest, user: dict = Depends(get_current_user)):
+    """Create a PayPal subscription for the selected plan."""
+    if data.plan not in ("rast", "biznis"):
+        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'rast' or 'biznis'.")
+    
+    plan_id = PAYPAL_PLAN_ID_RAST if data.plan == "rast" else PAYPAL_PLAN_ID_BIZNIS
+    # Fallback to legacy single plan
+    if not plan_id:
+        plan_id = PAYPAL_PLAN_ID
+    if not plan_id:
         raise HTTPException(status_code=500, detail="PayPal plan not configured. Run /payments/paypal/setup-plan first.")
     try:
         access_token = await get_paypal_access_token()
@@ -2727,14 +2887,14 @@ async def create_paypal_subscription(user: dict = Depends(get_current_user)):
                     "Content-Type": "application/json"
                 },
                 json={
-                    "plan_id": PAYPAL_PLAN_ID,
-                    "custom_id": user["id"],
+                    "plan_id": plan_id,
+                    "custom_id": f"{user['id']}|{data.plan}",
                     "application_context": {
                         "brand_name": "Narucify",
                         "locale": "sr-RS",
                         "shipping_preference": "NO_SHIPPING",
                         "user_action": "SUBSCRIBE_NOW",
-                        "return_url": f"{FRONTEND_URL}/settings?subscription=success",
+                        "return_url": f"{FRONTEND_URL}/settings?subscription=success&plan={data.plan}",
                         "cancel_url": f"{FRONTEND_URL}/settings?subscription=cancelled"
                     }
                 }
@@ -2749,10 +2909,13 @@ async def create_paypal_subscription(user: dict = Depends(get_current_user)):
                     approve_url = link["href"]
                     break
             
-            # Save subscription ID to user
+            # Save subscription ID and pending plan to user
             await db.users.update_one(
                 {"id": user["id"]},
-                {"$set": {"paypal_subscription_id": sub_data["id"]}}
+                {"$set": {
+                    "paypal_subscription_id": sub_data["id"],
+                    "pending_plan": data.plan
+                }}
             )
             
             return {
@@ -2782,22 +2945,34 @@ async def verify_paypal_subscription(user: dict = Depends(get_current_user)):
             sub_data = resp.json()
             
             if sub_data.get("status") == "ACTIVE":
+                # Determine plan from custom_id (format: "user_id|plan") or pending_plan
+                custom_id = sub_data.get("custom_id", "")
+                plan = "starter"
+                if "|" in custom_id:
+                    plan = custom_id.split("|")[1]
+                else:
+                    plan = user.get("pending_plan", "rast")
+                if plan not in ("rast", "biznis"):
+                    plan = "rast"
+                
                 pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
                 await db.users.update_one(
                     {"id": user["id"]},
                     {"$set": {
                         "is_pro": True,
+                        "plan": plan,
                         "pro_expires_at": pro_expires.isoformat(),
                         "paypal_subscription_status": "ACTIVE"
                     }}
                 )
+                plan_label = "Rast" if plan == "rast" else "Biznis"
                 await create_notification(
                     user["id"],
-                    "PRO aktiviran! 🎉",
-                    "Tvoj PRO plan je aktivan. Pretplata se automatski obnavlja svakog meseca.",
+                    f"{plan_label} plan aktiviran! 🎉",
+                    f"Tvoj {plan_label} plan je aktivan. Pretplata se automatski obnavlja svakog meseca.",
                     "payment"
                 )
-                return {"status": "ACTIVE", "pro_expires_at": pro_expires.isoformat()}
+                return {"status": "ACTIVE", "plan": plan, "pro_expires_at": pro_expires.isoformat()}
             
             return {"status": sub_data.get("status", "UNKNOWN")}
     except Exception as e:
@@ -2827,10 +3002,11 @@ async def cancel_paypal_subscription(user: dict = Depends(get_current_user)):
                     {"id": user["id"]},
                     {"$set": {"paypal_subscription_status": "CANCELLED"}}
                 )
+                plan_label = "Rast" if user.get("plan") == "rast" else "Biznis"
                 await create_notification(
                     user["id"],
                     "Pretplata otkazana",
-                    "PRO plan ostaje aktivan do kraja perioda. Posle toga prelazi na Starter.",
+                    f"{plan_label} plan ostaje aktivan do kraja perioda. Posle toga prelazi na Starter.",
                     "payment"
                 )
                 return {"status": "CANCELLED"}
@@ -2851,14 +3027,20 @@ async def paypal_webhook(request: Request):
     logger.info(f"PayPal webhook: {event_type}")
     
     if event_type == "BILLING.SUBSCRIPTION.ACTIVATED":
-        custom_id = resource.get("custom_id")  # user_id
+        custom_id = resource.get("custom_id")  # format: "user_id|plan"
         sub_id = resource.get("id")
         if custom_id:
+            parts = custom_id.split("|")
+            user_id = parts[0]
+            plan = parts[1] if len(parts) > 1 else "rast"
+            if plan not in ("rast", "biznis"):
+                plan = "rast"
             pro_expires = datetime.now(timezone.utc) + timedelta(days=30)
             await db.users.update_one(
-                {"id": custom_id},
+                {"id": user_id},
                 {"$set": {
                     "is_pro": True,
+                    "plan": plan,
                     "pro_expires_at": pro_expires.isoformat(),
                     "paypal_subscription_id": sub_id,
                     "paypal_subscription_status": "ACTIVE"
@@ -2889,9 +3071,12 @@ async def paypal_webhook(request: Request):
     elif event_type in ("BILLING.SUBSCRIPTION.CANCELLED", "BILLING.SUBSCRIPTION.SUSPENDED"):
         custom_id = resource.get("custom_id")
         sub_id = resource.get("id")
+        user_id = None
         if custom_id:
+            user_id = custom_id.split("|")[0]
+        if user_id:
             await db.users.update_one(
-                {"id": custom_id},
+                {"id": user_id},
                 {"$set": {"paypal_subscription_status": event_type.split(".")[-1]}}
             )
         elif sub_id:
@@ -2904,7 +3089,12 @@ async def paypal_webhook(request: Request):
 
 @api_router.get("/payments/paypal/client-id")
 async def get_paypal_client_id(user: dict = Depends(get_current_user)):
-    return {"client_id": PAYPAL_CLIENT_ID, "plan_id": PAYPAL_PLAN_ID}
+    return {
+        "client_id": PAYPAL_CLIENT_ID,
+        "plan_id_rast": PAYPAL_PLAN_ID_RAST,
+        "plan_id_biznis": PAYPAL_PLAN_ID_BIZNIS,
+        "plan_id": PAYPAL_PLAN_ID  # legacy
+    }
 
 
 app.include_router(api_router)
