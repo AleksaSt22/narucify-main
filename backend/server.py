@@ -837,6 +837,58 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
     updated_user = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
     return updated_user
 
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+class ChangeEmail(BaseModel):
+    password: str
+    new_email: str
+
+class ChangeBusinessName(BaseModel):
+    business_name: str
+
+@api_router.post("/auth/change-password")
+async def change_password(data: ChangePassword, user: dict = Depends(get_current_user)):
+    # Verify current password
+    db_user = await db.users.find_one({"id": user["id"]})
+    if not db_user or not verify_password(data.current_password, db_user["password"]):
+        raise HTTPException(status_code=400, detail="Pogrešna trenutna lozinka")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Nova lozinka mora imati najmanje 6 karaktera")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"password": hash_password(data.new_password)}}
+    )
+    return {"success": True, "message": "Lozinka uspešno promenjena"}
+
+@api_router.post("/auth/change-email")
+async def change_email(data: ChangeEmail, user: dict = Depends(get_current_user)):
+    # Verify password
+    db_user = await db.users.find_one({"id": user["id"]})
+    if not db_user or not verify_password(data.password, db_user["password"]):
+        raise HTTPException(status_code=400, detail="Pogrešna lozinka")
+    # Check if email is already taken
+    existing = await db.users.find_one({"email": data.new_email.lower().strip()})
+    if existing and existing["id"] != user["id"]:
+        raise HTTPException(status_code=400, detail="Email je već u upotrebi")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"email": data.new_email.lower().strip()}}
+    )
+    return {"success": True, "message": "Email uspešno promenjen"}
+
+@api_router.post("/auth/change-business-name")
+async def change_business_name(data: ChangeBusinessName, user: dict = Depends(get_current_user)):
+    name = data.business_name.strip()
+    if not name or len(name) < 2:
+        raise HTTPException(status_code=400, detail="Ime mora imati najmanje 2 karaktera")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"business_name": name[:100]}}
+    )
+    return {"success": True, "message": "Ime biznisa uspešno promenjeno"}
+
 # ==================== ADMIN AUTH ====================
 
 @api_router.post("/admin/login", response_model=dict)

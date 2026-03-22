@@ -56,7 +56,10 @@ import {
   Share2,
   Flame,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Lock,
+  KeyRound,
+  Pencil
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -88,6 +91,16 @@ export default function SettingsPage() {
   const [vacationMode, setVacationMode] = useState(user?.shop_vacation_mode ?? false);
   const [vacationMessage, setVacationMessage] = useState(user?.shop_vacation_message || '');
   const [savingFeature, setSavingFeature] = useState(null);
+
+  // Account management states
+  const [editingField, setEditingField] = useState(null); // 'password' | 'email' | 'name'
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [newBusinessName, setNewBusinessName] = useState(user?.business_name || '');
+  const [accountSaving, setAccountSaving] = useState(false);
 
   // Verify PayPal subscription when returning from PayPal
   useEffect(() => {
@@ -735,6 +748,201 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Account Management */}
+        <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-white">
+              <KeyRound className="w-5 h-5 text-primary" />
+              {language === 'sr' ? 'Upravljanje nalogom' : 'Account Management'}
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              {language === 'sr' ? 'Promeni lozinku, email ili ime biznisa' : 'Change password, email or business name'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Change Business Name */}
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Pencil className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Ime biznisa' : 'Business Name'}</p>
+                    <p className="text-xs text-zinc-500">{user?.business_name}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-zinc-400 hover:text-white"
+                  onClick={() => {
+                    setEditingField(editingField === 'name' ? null : 'name');
+                    setNewBusinessName(user?.business_name || '');
+                  }}
+                >
+                  {editingField === 'name' ? (language === 'sr' ? 'Otkaži' : 'Cancel') : (language === 'sr' ? 'Promeni' : 'Change')}
+                </Button>
+              </div>
+              {editingField === 'name' && (
+                <div className="mt-3 space-y-3">
+                  <Input
+                    placeholder={language === 'sr' ? 'Novo ime biznisa' : 'New business name'}
+                    value={newBusinessName}
+                    onChange={e => setNewBusinessName(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  <Button
+                    size="sm" className="primary-gradient"
+                    disabled={accountSaving || !newBusinessName.trim()}
+                    onClick={async () => {
+                      setAccountSaving(true);
+                      try {
+                        await axios.post(`${API_URL}/auth/change-business-name`, { business_name: newBusinessName });
+                        toast.success(language === 'sr' ? 'Ime promenjeno!' : 'Name changed!');
+                        await refreshUser();
+                        setEditingField(null);
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || 'Error');
+                      } finally { setAccountSaving(false); }
+                    }}
+                  >
+                    {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Sačuvaj' : 'Save')}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Change Email */}
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <Mail className="w-4 h-4 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Email</p>
+                    <p className="text-xs text-zinc-500">{user?.email}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-zinc-400 hover:text-white"
+                  onClick={() => {
+                    setEditingField(editingField === 'email' ? null : 'email');
+                    setNewEmail(''); setEmailPassword('');
+                  }}
+                >
+                  {editingField === 'email' ? (language === 'sr' ? 'Otkaži' : 'Cancel') : (language === 'sr' ? 'Promeni' : 'Change')}
+                </Button>
+              </div>
+              {editingField === 'email' && (
+                <div className="mt-3 space-y-3">
+                  <Input
+                    type="email"
+                    placeholder={language === 'sr' ? 'Novi email' : 'New email'}
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  <Input
+                    type="password"
+                    placeholder={language === 'sr' ? 'Trenutna lozinka (potvrda)' : 'Current password (confirm)'}
+                    value={emailPassword}
+                    onChange={e => setEmailPassword(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  <Button
+                    size="sm" className="primary-gradient"
+                    disabled={accountSaving || !newEmail || !emailPassword}
+                    onClick={async () => {
+                      setAccountSaving(true);
+                      try {
+                        await axios.post(`${API_URL}/auth/change-email`, { new_email: newEmail, password: emailPassword });
+                        toast.success(language === 'sr' ? 'Email promenjen!' : 'Email changed!');
+                        await refreshUser();
+                        setEditingField(null);
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || 'Error');
+                      } finally { setAccountSaving(false); }
+                    }}
+                  >
+                    {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Sačuvaj' : 'Save')}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Change Password */}
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <Lock className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Lozinka' : 'Password'}</p>
+                    <p className="text-xs text-zinc-500">••••••••</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-zinc-400 hover:text-white"
+                  onClick={() => {
+                    setEditingField(editingField === 'password' ? null : 'password');
+                    setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+                  }}
+                >
+                  {editingField === 'password' ? (language === 'sr' ? 'Otkaži' : 'Cancel') : (language === 'sr' ? 'Promeni' : 'Change')}
+                </Button>
+              </div>
+              {editingField === 'password' && (
+                <div className="mt-3 space-y-3">
+                  <Input
+                    type="password"
+                    placeholder={language === 'sr' ? 'Trenutna lozinka' : 'Current password'}
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  <Input
+                    type="password"
+                    placeholder={language === 'sr' ? 'Nova lozinka' : 'New password'}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  <Input
+                    type="password"
+                    placeholder={language === 'sr' ? 'Potvrdi novu lozinku' : 'Confirm new password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                  />
+                  {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-400">{language === 'sr' ? 'Lozinke se ne poklapaju' : 'Passwords do not match'}</p>
+                  )}
+                  <Button
+                    size="sm" className="primary-gradient"
+                    disabled={accountSaving || !currentPassword || !newPassword || newPassword !== confirmPassword}
+                    onClick={async () => {
+                      setAccountSaving(true);
+                      try {
+                        await axios.post(`${API_URL}/auth/change-password`, { current_password: currentPassword, new_password: newPassword });
+                        toast.success(language === 'sr' ? 'Lozinka promenjena!' : 'Password changed!');
+                        setEditingField(null);
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || 'Error');
+                      } finally { setAccountSaving(false); }
+                    }}
+                  >
+                    {accountSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'sr' ? 'Sačuvaj' : 'Save')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Moja Ponuda (Storefront) Link */}
         <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
           <CardHeader>
@@ -887,7 +1095,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-zinc-500 mt-1">
-                {language === 'sr' ? 'Prikazuje se na vrhu tvog kataloga' : 'Shown at the top of your catalog'}
+                {language === 'sr' ? 'Prikazuje se na vrhu tvoje prodavnice' : 'Shown at the top of your shop'}
               </p>
             </div>
 
@@ -895,7 +1103,7 @@ export default function SettingsPage() {
             <div className="pt-4 border-t border-zinc-800">
               <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
                 <Palette className="w-4 h-4" />
-                {language === 'sr' ? 'Tema kataloga' : 'Catalog Theme'}
+                {language === 'sr' ? 'Tema prodavnice' : 'Shop Theme'}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(themeDisplayInfo).map(([key, info]) => (
@@ -931,12 +1139,12 @@ export default function SettingsPage() {
             <div className="pt-4 border-t border-zinc-800">
               <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
                 <MessageCircle className="w-4 h-4" />
-                {language === 'sr' ? 'Kontakt dugmad na katalogu' : 'Contact buttons on catalog'}
+                {language === 'sr' ? 'Kontakt dugmad na prodavnici' : 'Contact buttons on shop'}
               </p>
               <p className="text-xs text-zinc-500 mb-3">
                 {language === 'sr' 
-                  ? 'Kupci će moći da te kontaktiraju direktno sa kataloga. Ostavi prazno ako ne želiš da prikazuješ.'
-                  : 'Customers can contact you directly from the catalog. Leave empty to hide.'}
+                  ? 'Kupci će moći da te kontaktiraju direktno sa prodavnice. Ostavi prazno ako ne želiš da prikazuješ.'
+                  : 'Customers can contact you directly from the shop. Leave empty to hide.'}
               </p>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -993,12 +1201,12 @@ export default function SettingsPage() {
             <div className="pt-4 border-t border-zinc-800">
               <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
                 <Zap className="w-4 h-4" />
-                {language === 'sr' ? 'Funkcije kataloga' : 'Catalog Features'}
+                {language === 'sr' ? 'Funkcije prodavnice' : 'Shop Features'}
               </p>
               <p className="text-xs text-zinc-500 mb-4">
                 {language === 'sr' 
-                  ? 'Uključi ili isključi dodatne opcije za svoj katalog.'
-                  : 'Enable or disable additional options for your catalog.'}
+                  ? 'Uključi ili isključi dodatne opcije za svoju prodavnicu.'
+                  : 'Enable or disable additional options for your shop.'}
               </p>
               <div className="space-y-4">
                 {/* Low Stock Badge */}

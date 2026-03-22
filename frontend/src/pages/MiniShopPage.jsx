@@ -38,7 +38,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // ==================== TRANSLATIONS ====================
 const translations = {
   en: {
-    catalog: 'Catalog',
+    catalog: 'Shop',
     products: 'Products',
     addToOrder: 'Add to Cart',
     outOfStock: 'Out of Stock',
@@ -72,7 +72,7 @@ const translations = {
     allProducts: 'All Products',
     items: 'items',
     paymentMethod: 'Payment Method',
-    backToShop: 'Back to Catalog',
+    backToShop: 'Back to Shop',
     lastItems: 'Only {n} left!',
     onSale: 'SALE',
     orderNow: 'Order Now',
@@ -84,7 +84,7 @@ const translations = {
     wasPrice: 'was',
   },
   sr: {
-    catalog: 'Katalog',
+    catalog: 'Prodavnica',
     products: 'Proizvodi',
     addToOrder: 'Dodaj u korpu',
     outOfStock: 'Nema na stanju',
@@ -118,7 +118,7 @@ const translations = {
     allProducts: 'Svi proizvodi',
     items: 'artikala',
     paymentMethod: 'Način plaćanja',
-    backToShop: 'Nazad u katalog',
+    backToShop: 'Nazad u prodavnicu',
     lastItems: 'Još samo {n}!',
     onSale: 'AKCIJA',
     orderNow: 'Poruči odmah',

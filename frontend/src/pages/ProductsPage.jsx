@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
@@ -31,6 +31,8 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -169,6 +171,12 @@ export default function ProductsPage() {
     product.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   if (loading) {
     return (
       <Layout>
@@ -204,7 +212,7 @@ export default function ProductsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder={t('search') + '...'}
               className="pl-10 max-w-md"
               data-testid="product-search-input"
@@ -236,8 +244,9 @@ export default function ProductsPage() {
             </CardContent>
           </Card>
         ) : (
+          <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredProducts.map((product, index) => (
+            {paginatedProducts.map((product, index) => (
               <Card 
                 key={product.id} 
                 className={`card-hover animate-fade-in overflow-hidden`}
@@ -345,6 +354,48 @@ export default function ProductsPage() {
               </Card>
             ))}
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+                className="h-9 w-9"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce((acc, p, i, arr) => {
+                  if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) => p === '...' ? (
+                  <span key={`dots-${i}`} className="px-1 text-zinc-500">…</span>
+                ) : (
+                  <Button
+                    key={p} variant={currentPage === p ? 'default' : 'outline'}
+                    size="icon" className="h-9 w-9"
+                    onClick={() => setCurrentPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ))}
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="h-9 w-9"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-zinc-500 ml-2">
+                {filteredProducts.length} {language === 'sr' ? 'proizvoda' : 'products'}
+              </span>
+            </div>
+          )}
+          </>
         )}
 
         {/* Add/Edit Product Dialog */}

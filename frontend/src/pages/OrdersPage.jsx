@@ -43,7 +43,9 @@ import {
   Search,
   Clock,
   Truck,
-  Download
+  Download,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -62,6 +64,8 @@ export default function OrdersPage() {
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   
   // Order creation state
   const [orderItems, setOrderItems] = useState([]);
@@ -253,6 +257,12 @@ export default function OrdersPage() {
     return matchesStatus && matchesSearch;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   if (loading) {
     return (
       <Layout>
@@ -336,7 +346,7 @@ export default function OrdersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <Input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder={t('search') + '...'}
               className="pl-10 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
               data-testid="order-search-input"
@@ -348,7 +358,7 @@ export default function OrdersPage() {
             <Button 
               variant={statusFilter === 'all' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setStatusFilter('all')}
+              onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
               className={statusFilter === 'all' ? 'primary-gradient text-white' : 'border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800'}
             >
               {t('all')}
@@ -358,7 +368,7 @@ export default function OrdersPage() {
                 key={status}
                 variant={statusFilter === status ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter(status)}
+                onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
                 className={statusFilter === status ? 'primary-gradient text-white' : 'border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800'}
               >
                 {t(status)}
@@ -377,8 +387,9 @@ export default function OrdersPage() {
             </CardContent>
           </Card>
         ) : (
+          <>
           <div className="space-y-3">
-            {filteredOrders.map((order, index) => (
+            {paginatedOrders.map((order, index) => (
               <Card 
                 key={order.id} 
                 className="card-hover animate-fade-in bg-zinc-900 border-zinc-800"
@@ -468,6 +479,48 @@ export default function OrdersPage() {
               </Card>
             ))}
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+                className="h-9 w-9"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce((acc, p, i, arr) => {
+                  if (i > 0 && p - arr[i - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) => p === '...' ? (
+                  <span key={`dots-${i}`} className="px-1 text-zinc-500">…</span>
+                ) : (
+                  <Button
+                    key={p} variant={currentPage === p ? 'default' : 'outline'}
+                    size="icon" className="h-9 w-9"
+                    onClick={() => setCurrentPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ))}
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="h-9 w-9"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-zinc-500 ml-2">
+                {filteredOrders.length} {t('orders').toLowerCase()}
+              </span>
+            </div>
+          )}
+          </>
         )}
 
         {/* Create Order Dialog */}
