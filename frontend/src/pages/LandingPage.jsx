@@ -340,7 +340,7 @@ export default function LandingPage() {
             {[
               { end: 500, suffix: '+', label: 'Prodavaca' },
               { end: 15000, suffix: '+', label: 'Narudžbina obrađeno' },
-              { end: 6, suffix: '', label: 'Tema za prodavnicu' },
+              { end: 12, suffix: '', label: 'Tema za prodavnicu' },
               { end: 21, suffix: ' dan', label: 'Besplatni trial' },
             ].map((s, i) => (
               <div key={i} className="text-center">
@@ -661,81 +661,126 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 relative">
           <Reveal className="text-center mb-16">
             <p className="text-sm font-semibold text-orange-400 uppercase tracking-[0.15em] mb-3">Cene</p>
-            <h2 className="text-3xl md:text-[2.8rem] font-extrabold tracking-tight">Jednostavno. Transparentno.</h2>
-            <p className="text-zinc-400 mt-4 max-w-lg mx-auto text-[17px]">21 dan besplatno. Bez skrivenih troškova. Otkaži kad hoćeš.</p>
+            <h2 className="text-3xl md:text-[2.8rem] font-extrabold tracking-tight">Izaberi plan koji ti odgovara</h2>
+            <p className="text-zinc-400 mt-4 max-w-lg mx-auto text-[17px]">21 dan besplatno za sve planove. Bez skrivenih troškova. Otkaži kad hoćeš.</p>
           </Reveal>
 
-          <div className="grid md:grid-cols-2 gap-7 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
             {/* Starter */}
             <Reveal>
-              <div className="h-full p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col">
-                <div className="mb-6">
+              <div className="h-full p-7 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col">
+                <div className="mb-5">
                   <h3 className="text-xl font-bold text-white mb-1">Starter</h3>
                   <p className="text-zinc-500 text-sm">Za početnike koji tek kreću</p>
                 </div>
-                <div className="mb-8">
-                  <span className="text-5xl font-extrabold tracking-tight text-white">0 RSD</span>
+                <div className="mb-7">
+                  <span className="text-4xl font-extrabold tracking-tight text-white">0 RSD</span>
                   <span className="text-zinc-500 text-sm ml-2">/ zauvek</span>
                 </div>
-                <ul className="space-y-3.5 mb-10 flex-1">
+                <ul className="space-y-3 mb-8 flex-1">
                   {[
-                    'Do 10 proizvoda u prodavnici',
+                    'Do 15 proizvoda',
+                    'Do 10 u prodavnici',
                     'Neograničene narudžbine',
+                    '6 tema za prodavnicu',
+                    '4 rasporeda (layout-a)',
                     'Upravljanje kupcima',
                     'Link za online narudžbinu',
-                    'Praćenje narudžbina za kupce',
-                    '6 tema za prodavnicu',
+                    'Praćenje narudžbina',
+                    'Narucify vodeni žig',
                   ].map((f, i) => (
-                    <li key={i} className="flex items-start gap-3 text-zinc-300 text-[14px]">
+                    <li key={i} className="flex items-start gap-3 text-zinc-300 text-[13.5px]">
                       <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-emerald-400" /></div>
                       {f}
                     </li>
                   ))}
                 </ul>
                 <Link to="/register">
-                  <Button variant="outline" className="w-full h-[52px] rounded-xl border-white/[0.10] text-white hover:bg-white/[0.06] text-[15px] font-semibold transition-all duration-300">
+                  <Button variant="outline" className="w-full h-[48px] rounded-xl border-white/[0.10] text-white hover:bg-white/[0.06] text-[14px] font-semibold transition-all duration-300">
                     Započni besplatno
                   </Button>
                 </Link>
               </div>
             </Reveal>
 
-            {/* PRO */}
-            <Reveal delay={120}>
-              <div className="relative h-full p-8 rounded-2xl border border-orange-500/25 bg-gradient-to-b from-orange-500/[0.06] to-white/[0.02] flex flex-col shadow-[0_0_60px_-15px_rgba(249,115,22,0.15)]">
+            {/* Rast */}
+            <Reveal delay={100}>
+              <div className="relative h-full p-7 rounded-2xl border border-orange-500/25 bg-gradient-to-b from-orange-500/[0.06] to-white/[0.02] flex flex-col shadow-[0_0_60px_-15px_rgba(249,115,22,0.15)]">
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-rose-600 text-white text-xs font-bold shadow-xl shadow-orange-500/30">
                     <Crown className="w-3.5 h-3.5" /> NAJPOPULARNIJI
                   </span>
                 </div>
-                <div className="mb-6 mt-2">
-                  <h3 className="text-xl font-bold text-white mb-1">PRO</h3>
-                  <p className="text-zinc-400 text-sm">Za ozbiljne prodavce</p>
+                <div className="mb-5 mt-2">
+                  <h3 className="text-xl font-bold text-white mb-1">Rast</h3>
+                  <p className="text-zinc-400 text-sm">Za rastući biznis</p>
                 </div>
-                <div className="mb-2">
-                  <span className="text-5xl font-extrabold tracking-tight text-white">999 RSD</span>
+                <div className="mb-1">
+                  <span className="text-4xl font-extrabold tracking-tight text-white">2.499 RSD</span>
                   <span className="text-zinc-400 text-sm ml-2">/ mesečno</span>
                 </div>
-                <p className="text-[13px] text-orange-400 font-medium mb-8">Prvih 21 dan potpuno besplatno</p>
-                <ul className="space-y-3.5 mb-10 flex-1">
+                <p className="text-[12.5px] text-zinc-500 mb-1">~21.99 EUR / mesečno</p>
+                <p className="text-[13px] text-orange-400 font-medium mb-7">Prvih 21 dan potpuno besplatno</p>
+                <ul className="space-y-3 mb-8 flex-1">
                   {[
                     'Sve iz Starter plana',
-                    'Neograničen broj proizvoda',
-                    'Napredna analitika i statistike',
-                    'Upravljanje finansijama',
-                    'Export u CSV / PDF',
+                    'Do 50 proizvoda',
+                    'Shop Customizer',
+                    'Personalizacija prodavnice',
+                    'Manji vodeni žig',
                     'Prioritetna podrška',
-                    'Custom branding',
-                    'Email marketing (uskoro)',
                   ].map((f, i) => (
-                    <li key={i} className="flex items-start gap-3 text-zinc-200 text-[14px]">
+                    <li key={i} className="flex items-start gap-3 text-zinc-200 text-[13.5px]">
                       <div className="w-5 h-5 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-orange-400" /></div>
                       {f}
                     </li>
                   ))}
                 </ul>
                 <Link to="/register">
-                  <Button className="w-full h-[52px] rounded-xl bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 text-[15px] font-semibold transition-all duration-300">
+                  <Button className="w-full h-[48px] rounded-xl bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 text-[14px] font-semibold transition-all duration-300">
+                    Probaj 21 dan besplatno <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </Reveal>
+
+            {/* Biznis */}
+            <Reveal delay={200}>
+              <div className="relative h-full p-7 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-bold shadow-xl shadow-violet-500/30">
+                    <Sparkles className="w-3.5 h-3.5" /> SVE UKLJUČENO
+                  </span>
+                </div>
+                <div className="mb-5 mt-2">
+                  <h3 className="text-xl font-bold text-white mb-1">Biznis</h3>
+                  <p className="text-zinc-400 text-sm">Za profesionalne prodavce</p>
+                </div>
+                <div className="mb-1">
+                  <span className="text-4xl font-extrabold tracking-tight text-white">3.899 RSD</span>
+                  <span className="text-zinc-400 text-sm ml-2">/ mesečno</span>
+                </div>
+                <p className="text-[12.5px] text-zinc-500 mb-1">~33.99 EUR / mesečno</p>
+                <p className="text-[13px] text-violet-400 font-medium mb-7">Prvih 21 dan potpuno besplatno</p>
+                <ul className="space-y-3 mb-8 flex-1">
+                  {[
+                    'Sve iz Rast plana',
+                    'Neograničen broj proizvoda',
+                    'Svih 12 tema',
+                    'Svih 7 rasporeda',
+                    'Pun Shop Customizer',
+                    'Bez vodenog žiga',
+                    'PRO značka na prodavnici',
+                    'Premium podrška',
+                  ].map((f, i) => (
+                    <li key={i} className="flex items-start gap-3 text-zinc-200 text-[13.5px]">
+                      <div className="w-5 h-5 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><Check className="w-3 h-3 text-violet-400" /></div>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link to="/register">
+                  <Button className="w-full h-[48px] rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-xl shadow-violet-500/25 hover:shadow-violet-500/40 text-[14px] font-semibold transition-all duration-300">
                     Probaj 21 dan besplatno <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
