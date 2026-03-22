@@ -338,6 +338,7 @@ class ProductCreate(BaseModel):
     old_price: Optional[float] = None
     stock: int = 0
     image_url: Optional[str] = ""
+    images: Optional[List[str]] = []
     show_in_shop: bool = False
 
 class ProductUpdate(BaseModel):
@@ -347,6 +348,7 @@ class ProductUpdate(BaseModel):
     old_price: Optional[float] = None
     stock: Optional[int] = None
     image_url: Optional[str] = None
+    images: Optional[List[str]] = None
     show_in_shop: Optional[bool] = None
 
 class ProductResponse(BaseModel):
@@ -358,6 +360,7 @@ class ProductResponse(BaseModel):
     old_price: Optional[float] = None
     stock: int
     image_url: str
+    images: List[str] = []
     created_at: str
     show_in_shop: bool = False
 
@@ -1051,6 +1054,8 @@ async def delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
 @api_router.post("/products", response_model=ProductResponse)
 async def create_product(data: ProductCreate, user: dict = Depends(get_current_user)):
     product_id = str(uuid.uuid4())
+    images = data.images or []
+    image_url = data.image_url or (images[0] if images else "")
     product_doc = {
         "id": product_id,
         "user_id": user["id"],
@@ -1059,7 +1064,8 @@ async def create_product(data: ProductCreate, user: dict = Depends(get_current_u
         "price": data.price,
         "old_price": data.old_price,
         "stock": data.stock,
-        "image_url": data.image_url or "",
+        "image_url": image_url,
+        "images": images,
         "show_in_shop": data.show_in_shop,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -1069,10 +1075,12 @@ async def create_product(data: ProductCreate, user: dict = Depends(get_current_u
 @api_router.get("/products", response_model=List[ProductResponse])
 async def get_products(user: dict = Depends(get_current_user)):
     products = await db.products.find({"user_id": user["id"]}, {"_id": 0}).to_list(1000)
-    # Ensure show_in_shop field exists for older products
+    # Ensure fields exist for older products
     for p in products:
         if "show_in_shop" not in p:
             p["show_in_shop"] = False
+        if "images" not in p:
+            p["images"] = [p["image_url"]] if p.get("image_url") else []
     return [ProductResponse(**p) for p in products]
 
 @api_router.get("/products/{product_id}", response_model=ProductResponse)
@@ -1082,6 +1090,8 @@ async def get_product(product_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Product not found")
     if "show_in_shop" not in product:
         product["show_in_shop"] = False
+    if "images" not in product:
+        product["images"] = [product["image_url"]] if product.get("image_url") else []
     return ProductResponse(**product)
 
 @api_router.put("/products/{product_id}", response_model=ProductResponse)
@@ -1091,10 +1101,15 @@ async def update_product(product_id: str, data: ProductUpdate, user: dict = Depe
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    # If images updated, set image_url to first image
+    if "images" in update_data and update_data["images"]:
+        update_data["image_url"] = update_data["images"][0]
     if update_data:
         await db.products.update_one({"id": product_id}, {"$set": update_data})
     
     updated = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if "images" not in updated:
+        updated["images"] = [updated["image_url"]] if updated.get("image_url") else []
     return ProductResponse(**updated)
 
 @api_router.delete("/products/{product_id}")
@@ -1212,6 +1227,11 @@ async def get_public_shop(user_id: str):
         {"user_id": user_id, "show_in_shop": True, "stock": {"$gt": 0}},
         {"_id": 0}
     ).limit(10).to_list(10)
+    
+    # Ensure images field exists for older products
+    for p in products:
+        if "images" not in p:
+            p["images"] = [p["image_url"]] if p.get("image_url") else []
     
     return {
         "seller_name": seller["business_name"],

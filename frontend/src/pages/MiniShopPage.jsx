@@ -29,7 +29,9 @@ import {
   Flame,
   PauseCircle,
   Zap,
-  Copy
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -346,6 +348,7 @@ export default function MiniShopPage() {
   const [submitting, setSubmitting] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [addedProductId, setAddedProductId] = useState(null);
+  const [imageIndexes, setImageIndexes] = useState({});
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -927,13 +930,46 @@ export default function MiniShopPage() {
                 >
                   {/* Image */}
                   <div className="relative aspect-square overflow-hidden">
-                    {product.image_url ? (
-                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className={`w-full h-full ${theme.imgPlaceholder} flex items-center justify-center`}>
-                        <Package className={`w-12 h-12 ${theme.emptyIcon}`} />
-                      </div>
-                    )}
+                    {(() => {
+                      const images = product.images && product.images.length > 0 ? product.images : (product.image_url ? [product.image_url] : []);
+                      const currentIdx = imageIndexes[product.id] || 0;
+                      const currentImg = images[currentIdx] || null;
+                      const hasMultiple = images.length > 1;
+                      return (
+                        <>
+                          {currentImg ? (
+                            <img src={currentImg} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          ) : (
+                            <div className={`w-full h-full ${theme.imgPlaceholder} flex items-center justify-center`}>
+                              <Package className={`w-12 h-12 ${theme.emptyIcon}`} />
+                            </div>
+                          )}
+                          {hasMultiple && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx - 1 + images.length) % images.length })); }}
+                                className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx + 1) % images.length })); }}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                {images.map((_, i) => (
+                                  <button key={i} onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: i })); }}
+                                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIdx ? 'bg-white w-3' : 'bg-white/50'}`}
+                                  />
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                     {product.stock <= 0 && (
                       <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
                         <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${theme.badgeOutOfStock}`}>{t('outOfStock')}</span>

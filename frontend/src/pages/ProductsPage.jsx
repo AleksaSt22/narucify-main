@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
@@ -40,7 +40,7 @@ export default function ProductsPage() {
     price: '',
     old_price: '',
     stock: '',
-    image_url: ''
+    images: []
   });
   const [togglingShop, setTogglingShop] = useState(null);
 
@@ -64,13 +64,16 @@ export default function ProductsPage() {
   const openDialog = (product = null) => {
     if (product) {
       setEditingProduct(product);
+      const images = product.images && product.images.length > 0 
+        ? product.images 
+        : (product.image_url ? [product.image_url] : []);
       setFormData({
         name: product.name,
         description: product.description,
         price: product.price.toString(),
         old_price: product.old_price ? product.old_price.toString() : '',
         stock: product.stock.toString(),
-        image_url: product.image_url
+        images: images
       });
     } else {
       setEditingProduct(null);
@@ -80,7 +83,7 @@ export default function ProductsPage() {
         price: '',
         old_price: '',
         stock: '',
-        image_url: ''
+        images: []
       });
     }
     setDialogOpen(true);
@@ -96,7 +99,8 @@ export default function ProductsPage() {
       price: parseFloat(formData.price),
       old_price: formData.old_price ? parseFloat(formData.old_price) : null,
       stock: parseInt(formData.stock) || 0,
-      image_url: formData.image_url
+      image_url: formData.images[0] || '',
+      images: formData.images
     };
 
     try {
@@ -264,6 +268,12 @@ export default function ProductsPage() {
                     <div className="w-full h-full flex items-center justify-center">
                       <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
                     </div>
+                  )}
+                  {product.images && product.images.length > 1 && (
+                    <Badge className="absolute bottom-2 right-2 bg-black/70 border-0 text-white text-[10px]">
+                      <ImageIcon className="w-3 h-3 mr-1" />
+                      {product.images.length}
+                    </Badge>
                   )}
                   {product.stock <= 5 && product.stock > 0 && (
                     <Badge className="absolute top-2 right-2 bg-status-warning/90 border-0">
@@ -479,12 +489,12 @@ export default function ProductsPage() {
               </div>
               
               <div className="space-y-2">
-                <Label>{language === 'sr' ? 'Slika proizvoda' : 'Product Image'}</Label>
+                <Label>{language === 'sr' ? 'Slike proizvoda' : 'Product Images'}</Label>
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center gap-2 px-3 py-2 border border-border rounded-lg cursor-pointer hover:bg-accent transition-colors">
                     <Upload className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground truncate">
-                      {uploadingImage ? (language === 'sr' ? 'Otpremanje...' : 'Uploading...') : (language === 'sr' ? 'Otpremi sliku' : 'Upload image')}
+                      {uploadingImage ? (language === 'sr' ? 'Otpremanje...' : 'Uploading...') : (language === 'sr' ? 'Dodaj sliku' : 'Add image')}
                     </span>
                     <input
                       type="file"
@@ -507,7 +517,7 @@ export default function ProductsPage() {
                                 image: ev.target.result,
                                 folder: 'products'
                               });
-                              setFormData(prev => ({ ...prev, image_url: res.data.url }));
+                              setFormData(prev => ({ ...prev, images: [...prev.images, res.data.url] }));
                               toast.success(language === 'sr' ? 'Slika otpremljena!' : 'Image uploaded!');
                             } catch (err) {
                               toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri otpremanju slike' : 'Error uploading image'));
@@ -529,23 +539,66 @@ export default function ProductsPage() {
                   <span className="text-xs text-muted-foreground">{language === 'sr' ? 'ili URL:' : 'or URL:'}</span>
                   <Input
                     type="url"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                     className="text-xs h-8"
                     data-testid="product-image-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const url = e.target.value.trim();
+                        if (url) {
+                          setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+                          e.target.value = '';
+                        }
+                      }
+                    }}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      const input = document.querySelector('[data-testid="product-image-input"]');
+                      const url = input?.value?.trim();
+                      if (url) {
+                        setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'sr' ? `${formData.images.length} slika dodato` : `${formData.images.length} image(s) added`}
+                </p>
               </div>
 
-              {formData.image_url && (
-                <div className="rounded-lg overflow-hidden bg-background border border-border">
-                  <img 
-                    src={formData.image_url} 
-                    alt="Preview" 
-                    className="w-full h-32 object-cover"
-                    onError={(e) => e.target.style.display = 'none'}
-                  />
+              {formData.images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {formData.images.map((url, idx) => (
+                    <div key={idx} className="relative rounded-lg overflow-hidden bg-background border border-border group">
+                      <img 
+                        src={url} 
+                        alt={`Preview ${idx + 1}`} 
+                        className="w-full h-24 object-cover"
+                        onError={(e) => e.target.style.display = 'none'}
+                      />
+                      {idx === 0 && (
+                        <span className="absolute bottom-1 left-1 text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
+                          {language === 'sr' ? 'Glavna' : 'Main'}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }))}
+                        className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               
