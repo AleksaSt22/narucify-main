@@ -819,7 +819,7 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
             raise HTTPException(status_code=400, detail="Invalid theme")
         update_data["shop_theme"] = data.shop_theme
     if data.shop_layout is not None:
-        valid_layouts = ["classic", "modern", "list", "magazine"]
+        valid_layouts = ["classic", "modern", "list", "magazine", "boutique", "showcase", "storefront"]
         if data.shop_layout not in valid_layouts:
             raise HTTPException(status_code=400, detail="Invalid layout")
         update_data["shop_layout"] = data.shop_layout

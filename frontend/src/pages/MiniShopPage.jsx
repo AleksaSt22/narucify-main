@@ -1071,6 +1071,572 @@ export default function MiniShopPage() {
     );
   }
 
+  // ==================== SHARED: Cart bar + watermark + styles ====================
+  const renderCartBar = () => (
+    <>
+      {cart.length > 0 && (
+        <div className={`fixed bottom-0 left-0 right-0 z-50 ${theme.cartBg}`}>
+          {cartOpen && (
+            <div className={`border-b ${theme.divider} max-h-64 overflow-y-auto`}>
+              <div className="max-w-5xl mx-auto p-4 space-y-3">
+                {cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
+                      {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : (
+                        <div className="w-full h-full flex items-center justify-center"><Package className={`w-4 h-4 ${theme.emptyIcon}`} /></div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium text-sm ${theme.textPrimary} truncate`}>{item.name}</p>
+                      <p className={`text-xs ${theme.textSecondary}`}>{item.quantity} × {formatCurrency(item.price)}</p>
+                    </div>
+                    <p className={`font-semibold text-sm ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 rounded-full" onClick={() => removeFromCart(item.id)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <button onClick={() => setCartOpen(!cartOpen)} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
+              <div className="relative">
+                <ShoppingCart className={`w-6 h-6 ${theme.cartIcon}`} />
+                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
+                  {getItemCount()}
+                </span>
+              </div>
+              <div className="text-left">
+                <p className={`text-sm ${theme.textSecondary}`}>{getItemCount()} {t('items')}</p>
+                <p className={`text-lg font-bold ${theme.textPrimary}`}>{formatCurrency(getTotal())}</p>
+              </div>
+              <ChevronUp className={`w-4 h-4 ${theme.textSecondary} transition-transform ${cartOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <Button className={`${theme.accent} px-8 h-12 rounded-xl text-base font-semibold`} onClick={() => setShowCheckout(true)}>
+              {t('checkout')}
+            </Button>
+          </div>
+        </div>
+      )}
+      {cart.length === 0 && (
+        <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
+          <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
+        </div>
+      )}
+    </>
+  );
+
+  const renderStyles = () => (
+    <style>{`
+      @keyframes catalogFadeIn {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes bounceIn {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.15); }
+        100% { transform: scale(1); }
+      }
+      .animate-bounce-in { animation: bounceIn 0.5s ease-out; }
+      @keyframes pingOnce {
+        0% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(1.5); opacity: 0; }
+      }
+      .animate-ping-once { animation: pingOnce 0.6s ease-out; }
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .line-clamp-1 {
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    `}</style>
+  );
+
+  // Shared image render helper
+  const renderProductImage = (product, customClass) => {
+    const images = product.images && product.images.length > 0 ? product.images : (product.image_url ? [product.image_url] : []);
+    const currentIdx = imageIndexes[product.id] || 0;
+    const currentImg = images[currentIdx] || null;
+    const hasMultiple = images.length > 1;
+    return (
+      <>
+        {currentImg ? (
+          <img src={currentImg} alt={product.name} className={customClass || "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"} />
+        ) : (
+          <div className={`w-full h-full ${theme.imgPlaceholder} flex items-center justify-center`}>
+            <Package className={`w-12 h-12 ${theme.emptyIcon}`} />
+          </div>
+        )}
+        {hasMultiple && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx - 1 + images.length) % images.length })); }}
+              className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: (currentIdx + 1) % images.length })); }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              {images.map((_, i) => (
+                <button key={i} onClick={(e) => { e.stopPropagation(); setImageIndexes(prev => ({ ...prev, [product.id]: i })); }}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIdx ? 'bg-white w-3' : 'bg-white/50'}`} />
+              ))}
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
+  // Shared badges helper
+  const renderBadges = (product) => {
+    const inCart = cart.find(item => item.id === product.id);
+    return (
+      <>
+        {product.stock <= 0 && (
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center">
+            <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${theme.badgeOutOfStock}`}>{t('outOfStock')}</span>
+          </div>
+        )}
+        {product.old_price && product.old_price > product.price && product.stock > 0 && (
+          <div className="absolute top-2.5 left-2.5 px-2 py-1 rounded-lg bg-red-500 text-white text-[10px] font-bold shadow-lg flex items-center gap-1">
+            <Flame className="w-3 h-3" /> {t('onSale')}
+          </div>
+        )}
+        {shop?.shop_show_low_stock && product.stock > 0 && product.stock <= 3 && (
+          <div className="absolute bottom-2.5 left-2.5 px-2 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-bold shadow-lg">
+            {t('lastItems').replace('{n}', product.stock)}
+          </div>
+        )}
+        {inCart && (
+          <div className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-full ${theme.badge} flex items-center justify-center text-xs font-bold shadow-lg`}>
+            {inCart.quantity}
+          </div>
+        )}
+        {shop?.shop_show_share && !inCart && product.stock > 0 && (
+          <button onClick={() => shareProduct(product)}
+            className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <button onClick={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
+          className={`absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center transition-all ${isWishlisted(product.id) ? 'bg-red-500/80 text-white' : 'bg-black/30 text-white opacity-0 group-hover:opacity-100'}`}>
+          <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? 'fill-white' : ''}`} />
+        </button>
+        {addedProductId === product.id && (
+          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center animate-ping-once">
+              <Check className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // Shared cart buttons helper
+  const renderCartButtons = (product, compact) => {
+    const inCart = cart.find(item => item.id === product.id);
+    if (inCart) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 rounded-lg ${theme.btnOutline}`}
+            onClick={() => { inCart.quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, -1); }}>
+            {inCart.quantity <= 1 ? <X className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+          </Button>
+          <span className={`flex-1 text-center ${theme.textPrimary} font-semibold text-sm`}>{inCart.quantity}</span>
+          <Button size="sm" variant="outline" className={`${compact ? 'h-8 w-8' : 'h-9 w-9'} p-0 rounded-lg ${theme.btnOutline}`}
+            onClick={() => updateQuantity(product.id, 1)} disabled={inCart.quantity >= product.stock}>
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <>
+        <Button className={`w-full rounded-lg ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
+          <Plus className="w-3.5 h-3.5" />
+          {t('addToOrder')}
+        </Button>
+        {shop?.shop_quick_order && product.stock > 0 && (
+          <Button variant="outline" className={`w-full rounded-lg h-8 text-xs ${theme.btnOutline} gap-1`} size="sm" onClick={() => quickOrder(product)}>
+            <Zap className="w-3 h-3" />
+            {t('orderNow')}
+          </Button>
+        )}
+      </>
+    );
+  };
+
+  // Get display products (shared across templates)
+  const getDisplayProducts = () => {
+    return selectedCategory === '__wishlist__'
+      ? (shop?.products || []).filter(p => wishlist.includes(p.id))
+      : filteredProducts;
+  };
+
+  // Shared search & filters
+  const renderSearchFilters = () => (
+    shop?.products?.length > 0 ? (
+      <div className="space-y-3 mb-6">
+        <div className="relative">
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${theme.textSecondary}`} />
+          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('searchProducts')}
+            className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${theme.cardBorder} ${theme.cardBg} ${theme.textPrimary} text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30`} />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button onClick={() => setSelectedCategory('')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${!selectedCategory ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+            {t('allCategories')}
+          </button>
+          {categories.map(cat => (
+            <button key={cat} onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {[{ val: 'default', label: t('sortDefault') }, { val: 'price_low', label: t('sortPriceLow') }, { val: 'price_high', label: t('sortPriceHigh') }, { val: 'newest', label: t('sortNewest') }].map(opt => (
+            <button key={opt.val} onClick={() => setSortBy(opt.val)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${sortBy === opt.val ? 'bg-orange-500 text-white' : `${theme.cardBg} ${theme.cardBorder} border ${theme.textSecondary}`}`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null
+  );
+
+  // ==================== BOUTIQUE TEMPLATE ====================
+  if (layout === 'boutique') {
+    const displayProducts = getDisplayProducts();
+    return (
+      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+        {/* Ultra-minimal centered header */}
+        <header className={`${theme.headerBg} px-4 py-6 text-center`}>
+          <div className="max-w-4xl mx-auto">
+            {shop?.logo_url && (
+              <img src={shop.logo_url} alt={shop.seller_name} className="w-16 h-16 rounded-full object-cover mx-auto mb-3 ring-2 ring-black/5" />
+            )}
+            <h1 className={`text-2xl md:text-3xl font-light tracking-wide ${theme.textPrimary} uppercase`}>
+              {shop?.seller_name}
+              {shop?.is_pro && <Crown className="w-4 h-4 text-amber-500 inline ml-2" />}
+            </h1>
+            {shop?.shop_description && (
+              <p className={`${theme.textSecondary} mt-2 max-w-md mx-auto text-sm italic`}>{shop.shop_description}</p>
+            )}
+            <div className="flex items-center justify-center gap-4 mt-4">
+              {shop?.shop_instagram && (
+                <a href={`https://instagram.com/${shop.shop_instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer" className={`${theme.textSecondary} hover:opacity-70`}>
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {shop?.shop_whatsapp && (
+                <a href={`https://wa.me/${shop.shop_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noopener noreferrer" className={`${theme.textSecondary} hover:opacity-70`}>
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+              )}
+              {cart.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setCartOpen(!cartOpen)} className={`relative ${theme.textPrimary}`}>
+                  <ShoppingCart className="w-5 h-5" />
+                  <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>{getItemCount()}</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')} className={`${theme.textSecondary}`}>
+                <Globe className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Featured product - first product displayed large */}
+        {displayProducts.length > 0 && (
+          <div className="max-w-4xl mx-auto px-4 pt-8">
+            <div className={`group rounded-3xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow}`}
+              style={{ animation: 'catalogFadeIn 0.4s ease-out forwards' }}>
+              <div className="grid md:grid-cols-2">
+                <div className="relative aspect-square md:aspect-auto md:min-h-[400px] overflow-hidden">
+                  {renderProductImage(displayProducts[0], "w-full h-full object-cover group-hover:scale-105 transition-transform duration-700")}
+                  {renderBadges(displayProducts[0])}
+                </div>
+                <div className={`p-6 md:p-10 flex flex-col justify-center`}>
+                  <p className={`text-xs uppercase tracking-widest ${theme.textSecondary} mb-3`}>{t('featured') || (language === 'sr' ? 'Istaknuto' : 'Featured')}</p>
+                  <h2 className={`text-2xl md:text-3xl font-light ${theme.textPrimary} mb-3`}>{displayProducts[0].name}</h2>
+                  {displayProducts[0].description && (
+                    <p className={`${theme.textSecondary} text-sm mb-4 leading-relaxed`}>{displayProducts[0].description}</p>
+                  )}
+                  <div className="flex items-baseline gap-3 mb-6">
+                    <span className={`text-2xl font-bold ${displayProducts[0].old_price && displayProducts[0].old_price > displayProducts[0].price ? 'text-red-500' : theme.textPrice}`}>
+                      {formatCurrency(displayProducts[0].price)}
+                    </span>
+                    {displayProducts[0].old_price && displayProducts[0].old_price > displayProducts[0].price && (
+                      <span className={`text-sm ${theme.textSecondary} line-through`}>{formatCurrency(displayProducts[0].old_price)}</span>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-w-xs">
+                    {renderCartButtons(displayProducts[0])}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rest of products */}
+        <main className="max-w-4xl mx-auto px-4 py-8 pb-32">
+          <div className={`h-px ${theme.divider} border-t mb-8`} />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={`text-sm uppercase tracking-widest ${theme.textSecondary}`}>{t('allProducts')}</h3>
+            {wishlist.length > 0 && (
+              <button onClick={() => setSelectedCategory('__wishlist__')} className={`flex items-center gap-1.5 text-sm ${selectedCategory === '__wishlist__' ? 'text-red-400' : theme.textSecondary}`}>
+                <Heart className={`w-4 h-4 ${selectedCategory === '__wishlist__' ? 'fill-red-400' : ''}`} /> {wishlist.length}
+              </button>
+            )}
+          </div>
+          {renderSearchFilters()}
+          <div className="grid grid-cols-2 gap-6">
+            {(displayProducts.length > 1 ? displayProducts.slice(1) : displayProducts).map((product, index) => (
+              <div key={product.id} className={`group rounded-2xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300`}
+                style={{ animationDelay: `${index * 0.08}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}>
+                <div className="relative aspect-[3/4] overflow-hidden">
+                  {renderProductImage(product)}
+                  {renderBadges(product)}
+                </div>
+                <div className="p-4">
+                  <h3 className={`font-light ${theme.textPrimary} text-sm tracking-wide mb-1 line-clamp-1`}>{product.name}</h3>
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <span className={`text-base font-semibold ${product.old_price && product.old_price > product.price ? 'text-red-500' : theme.textPrice}`}>
+                      {formatCurrency(product.price)}
+                    </span>
+                    {product.old_price && product.old_price > product.price && (
+                      <span className={`text-xs ${theme.textSecondary} line-through`}>{formatCurrency(product.old_price)}</span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">{renderCartButtons(product)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+        {renderCartBar()}
+        {renderStyles()}
+      </div>
+    );
+  }
+
+  // ==================== SHOWCASE TEMPLATE ====================
+  if (layout === 'showcase') {
+    const displayProducts = getDisplayProducts();
+    return (
+      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+        {/* Slim top bar */}
+        <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-2`}>
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {shop?.logo_url && <img src={shop.logo_url} alt="" className="w-8 h-8 rounded-full object-cover" />}
+              <span className={`font-semibold text-sm ${theme.textPrimary}`}>{shop?.seller_name}</span>
+              {shop?.is_pro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
+            </div>
+            <div className="flex items-center gap-1">
+              {cart.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setCartOpen(!cartOpen)} className={`relative ${theme.textPrimary} h-8 w-8 p-0`}>
+                  <ShoppingCart className="w-4 h-4" />
+                  <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full ${theme.badge} text-[9px] flex items-center justify-center font-bold`}>{getItemCount()}</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')} className={`${theme.textSecondary} h-8 w-8 p-0`}>
+                <Globe className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Gallery-style full-bleed product grid */}
+        <main className="max-w-6xl mx-auto px-2 md:px-4 py-4 pb-32">
+          <div className="px-2 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className={`text-xs ${theme.textSecondary}`}>{shop?.products?.length || 0} {t('products').toLowerCase()}</p>
+              {wishlist.length > 0 && (
+                <button onClick={() => setSelectedCategory('__wishlist__')} className={`flex items-center gap-1 text-xs ${selectedCategory === '__wishlist__' ? 'text-red-400' : theme.textSecondary}`}>
+                  <Heart className={`w-3 h-3 ${selectedCategory === '__wishlist__' ? 'fill-red-400' : ''}`} /> {wishlist.length}
+                </button>
+              )}
+            </div>
+            {renderSearchFilters()}
+          </div>
+
+          {/* Masonry-style bento grid */}
+          <div className="columns-2 md:columns-3 lg:columns-4 gap-2 md:gap-3">
+            {displayProducts.map((product, index) => {
+              const isLarge = index % 5 === 0;
+              return (
+                <div key={product.id} className={`group relative mb-2 md:mb-3 rounded-xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} break-inside-avoid transition-all duration-300`}
+                  style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}>
+                  <div className={`relative ${isLarge ? 'aspect-[3/4]' : 'aspect-square'} overflow-hidden`}>
+                    {renderProductImage(product)}
+                    {renderBadges(product)}
+                    {/* Hover overlay with info */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                      <h3 className="font-medium text-white text-sm leading-tight mb-1 line-clamp-2">{product.name}</h3>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-base font-bold text-white`}>{formatCurrency(product.price)}</span>
+                        {product.stock > 0 && (
+                          <Button size="sm" className="h-8 w-8 p-0 rounded-full bg-white text-black hover:bg-white/90" onClick={() => addToCart(product)}>
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Always visible minimal info below image */}
+                  <div className="p-2">
+                    <p className={`text-xs ${theme.textPrimary} line-clamp-1`}>{product.name}</p>
+                    <p className={`text-xs font-semibold ${theme.textPrice}`}>{formatCurrency(product.price)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {displayProducts.length === 0 && (
+            <div className={`${theme.cardBg} rounded-2xl ${theme.cardBorder} ${theme.cardShadow} py-12 text-center`}>
+              <Search className={`w-10 h-10 ${theme.emptyIcon} mx-auto mb-3`} />
+              <p className={`text-sm ${theme.textSecondary}`}>{t('noResults')}</p>
+            </div>
+          )}
+        </main>
+        {renderCartBar()}
+        {renderStyles()}
+      </div>
+    );
+  }
+
+  // ==================== STOREFRONT TEMPLATE ====================
+  if (layout === 'storefront') {
+    const displayProducts = getDisplayProducts();
+    return (
+      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+        {/* Full-width header with integrated search */}
+        <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-3`}>
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {shop?.logo_url ? (
+                  <img src={shop.logo_url} alt="" className="w-9 h-9 rounded-lg object-cover" />
+                ) : (
+                  <div className={`w-9 h-9 rounded-lg ${theme.accent} flex items-center justify-center`}>
+                    <ShoppingBag className="w-4 h-4 text-white" />
+                  </div>
+                )}
+                <span className={`font-bold ${theme.textPrimary} hidden md:block`}>{shop?.seller_name}</span>
+              </div>
+              {/* Integrated search */}
+              <div className="flex-1 relative">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${theme.textSecondary}`} />
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('searchProducts')}
+                  className={`w-full pl-10 pr-4 py-2 rounded-lg border ${theme.cardBorder} ${theme.cardBg} ${theme.textPrimary} text-sm focus:outline-none`} />
+              </div>
+              <div className="flex items-center gap-1">
+                {cart.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setCartOpen(!cartOpen)} className={`relative ${theme.textPrimary}`}>
+                    <ShoppingCart className="w-5 h-5" />
+                    <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>{getItemCount()}</span>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setLanguage(l => l === 'en' ? 'sr' : 'en')} className={`${theme.textSecondary}`}>
+                  <Globe className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            {/* Category horizontal nav */}
+            {categories.length > 0 && (
+              <div className={`flex gap-1 mt-2 overflow-x-auto pb-1 scrollbar-hide border-t ${theme.divider} pt-2`}>
+                <button onClick={() => setSelectedCategory('')} className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${!selectedCategory ? theme.accent : `${theme.textSecondary} hover:${theme.textPrimary}`}`}>
+                  {t('allCategories')}
+                </button>
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)} className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${selectedCategory === cat ? theme.accent : `${theme.textSecondary} hover:${theme.textPrimary}`}`}>
+                    {cat}
+                  </button>
+                ))}
+                {wishlist.length > 0 && (
+                  <button onClick={() => setSelectedCategory('__wishlist__')} className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap flex items-center gap-1 ${selectedCategory === '__wishlist__' ? 'bg-red-500 text-white' : `${theme.textSecondary}`}`}>
+                    <Heart className={`w-3 h-3 ${selectedCategory === '__wishlist__' ? 'fill-white' : ''}`} /> {wishlist.length}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Promo banner if description exists */}
+        {shop?.shop_description && (
+          <div className={`${theme.heroBg} px-4 py-3 text-center`}>
+            <p className={`text-sm ${theme.heroText}`}>{shop.shop_description}</p>
+          </div>
+        )}
+
+        {/* Sort bar */}
+        <div className={`${theme.sectionBg} px-4 py-2 border-b ${theme.divider}`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <p className={`text-xs ${theme.textSecondary}`}>{displayProducts.length} {t('products').toLowerCase()}</p>
+            <div className="flex gap-1">
+              {[{ val: 'default', label: t('sortDefault') }, { val: 'price_low', label: '↑ ' + t('price') }, { val: 'price_high', label: '↓ ' + t('price') }].map(opt => (
+                <button key={opt.val} onClick={() => setSortBy(opt.val)} className={`px-2 py-1 rounded text-xs ${sortBy === opt.val ? theme.accent : theme.textSecondary}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Dense product grid */}
+        <main className="max-w-7xl mx-auto px-4 py-4 pb-32">
+          {displayProducts.length === 0 ? (
+            <div className={`${theme.cardBg} rounded-xl ${theme.cardBorder} py-12 text-center`}>
+              <Search className={`w-10 h-10 ${theme.emptyIcon} mx-auto mb-3`} />
+              <p className={`text-sm ${theme.textSecondary}`}>{t('noResults')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {displayProducts.map((product, index) => (
+                <div key={product.id} className={`group rounded-lg overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-200`}
+                  style={{ animationDelay: `${index * 0.03}s`, animation: 'catalogFadeIn 0.3s ease-out forwards', opacity: 0 }}>
+                  <div className="relative aspect-square overflow-hidden">
+                    {renderProductImage(product)}
+                    {renderBadges(product)}
+                  </div>
+                  <div className="p-2.5">
+                    <h3 className={`font-medium ${theme.textPrimary} text-xs leading-tight mb-1 line-clamp-2`}>{product.name}</h3>
+                    {product.description && (
+                      <p className={`text-[10px] ${theme.textSecondary} line-clamp-1 mb-1`}>{product.description}</p>
+                    )}
+                    <div className="flex items-baseline gap-1.5 mb-2">
+                      <span className={`text-sm font-bold ${product.old_price && product.old_price > product.price ? 'text-red-500' : theme.textPrice}`}>
+                        {formatCurrency(product.price)}
+                      </span>
+                      {product.old_price && product.old_price > product.price && (
+                        <span className={`text-[10px] ${theme.textSecondary} line-through`}>{formatCurrency(product.old_price)}</span>
+                      )}
+                    </div>
+                    <div className="space-y-1">{renderCartButtons(product, true)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+        {renderCartBar()}
+        {renderStyles()}
+      </div>
+    );
+  }
+
   // ==================== MAIN CATALOG ====================
   return (
     <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
@@ -1390,83 +1956,8 @@ export default function MiniShopPage() {
         )}
       </main>
 
-      {/* Floating Cart Bar */}
-      {cart.length > 0 && (
-        <div className={`fixed bottom-0 left-0 right-0 z-50 ${theme.cartBg}`}>
-          {cartOpen && (
-            <div className={`border-b ${theme.divider} max-h-64 overflow-y-auto`}>
-              <div className="max-w-5xl mx-auto p-4 space-y-3">
-                {cart.map(item => (
-                  <div key={item.id} className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
-                      {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : (
-                        <div className="w-full h-full flex items-center justify-center"><Package className={`w-4 h-4 ${theme.emptyIcon}`} /></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-sm ${theme.textPrimary} truncate`}>{item.name}</p>
-                      <p className={`text-xs ${theme.textSecondary}`}>{item.quantity} × {formatCurrency(item.price)}</p>
-                    </div>
-                    <p className={`font-semibold text-sm ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 rounded-full" onClick={() => removeFromCart(item.id)}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <button onClick={() => setCartOpen(!cartOpen)} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
-              <div className="relative">
-                <ShoppingCart className={`w-6 h-6 ${theme.cartIcon}`} />
-                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
-                  {getItemCount()}
-                </span>
-              </div>
-              <div className="text-left">
-                <p className={`text-sm ${theme.textSecondary}`}>{getItemCount()} {t('items')}</p>
-                <p className={`text-lg font-bold ${theme.textPrimary}`}>{formatCurrency(getTotal())}</p>
-              </div>
-              <ChevronUp className={`w-4 h-4 ${theme.textSecondary} transition-transform ${cartOpen ? 'rotate-180' : ''}`} />
-            </button>
-            <Button className={`${theme.accent} px-8 h-12 rounded-xl text-base font-semibold`} onClick={() => setShowCheckout(true)}>
-              {t('checkout')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Powered by Narucify - always shown */}
-      {cart.length === 0 && (
-        <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
-          <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes catalogFadeIn {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes bounceIn {
-          0% { transform: scale(0); }
-          50% { transform: scale(1.15); }
-          100% { transform: scale(1); }
-        }
-        .animate-bounce-in { animation: bounceIn 0.5s ease-out; }
-        @keyframes pingOnce {
-          0% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(1.5); opacity: 0; }
-        }
-        .animate-ping-once { animation: pingOnce 0.6s ease-out; }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
+      {renderCartBar()}
+      {renderStyles()}
     </div>
   );
 }

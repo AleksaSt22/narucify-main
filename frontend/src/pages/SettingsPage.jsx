@@ -728,6 +728,47 @@ export default function SettingsPage() {
         </div>
       ),
     },
+    boutique: {
+      label: 'Boutique',
+      desc: language === 'sr' ? 'Luksuzni dizajn sa istaknutim proizvodom' : 'Luxury design with featured product',
+      icon: LayoutGrid,
+      preview: (
+        <div className="flex flex-col gap-0.5 w-full">
+          <div className="text-center text-[6px] text-zinc-500 mb-0.5">★ ★ ★</div>
+          <div className="grid grid-cols-2 gap-0.5">
+            <div className="aspect-[3/4] bg-zinc-600 rounded-[2px] col-span-2" />
+            {[...Array(2)].map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-600 rounded-[2px]" />)}
+          </div>
+        </div>
+      ),
+    },
+    showcase: {
+      label: 'Showcase',
+      desc: language === 'sr' ? 'Galerija - slike proizvoda u fokusu' : 'Gallery - product images in focus',
+      icon: Grid2x2,
+      preview: (
+        <div className="columns-2 gap-0.5 w-full">
+          <div className="aspect-[3/4] bg-zinc-600 rounded-[2px] mb-0.5" />
+          <div className="aspect-square bg-zinc-600 rounded-[2px] mb-0.5" />
+          <div className="aspect-square bg-zinc-600 rounded-[2px] mb-0.5" />
+          <div className="aspect-[3/4] bg-zinc-600 rounded-[2px] mb-0.5" />
+        </div>
+      ),
+    },
+    storefront: {
+      label: 'Storefront',
+      desc: language === 'sr' ? 'Profesionalna e-commerce prodavnica' : 'Professional e-commerce store',
+      icon: Rows3,
+      preview: (
+        <div className="flex flex-col gap-0.5 w-full">
+          <div className="h-2 bg-zinc-600 rounded-[2px]" />
+          <div className="h-1.5 bg-zinc-700 rounded-[2px]" />
+          <div className="grid grid-cols-5 gap-0.5">
+            {[...Array(10)].map((_, i) => <div key={i} className="aspect-square bg-zinc-600 rounded-[2px]" />)}
+          </div>
+        </div>
+      ),
+    },
   };
 
   return (
@@ -1245,7 +1286,7 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-500 mb-3">
                 {language === 'sr' ? 'Izaberi kako se proizvodi prikazuju kupcima' : 'Choose how products are displayed to customers'}
               </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Object.entries(layoutDisplayInfo).map(([key, info]) => {
                   const Icon = info.icon;
                   return (
