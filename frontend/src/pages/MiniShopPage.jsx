@@ -590,6 +590,64 @@ export default function MiniShopPage() {
   const theme = themes[shop?.shop_theme] || themes.elegance;
   const layout = shop?.shop_layout || 'classic';
 
+  // Shop customizer values
+  const shopFont = shop?.shop_font || 'modern';
+  const shopButtonStyle = shop?.shop_button_style || 'rounded';
+  const shopCardStyle = shop?.shop_card_style || 'shadow';
+  const shopHeaderStyle = shop?.shop_header_style || 'left';
+  const shopProductsPerRow = shop?.shop_products_per_row || 4;
+  const shopShowDesc = shop?.shop_show_product_description ?? true;
+  const shopHeroStyle = shop?.shop_hero_style || 'banner';
+
+  const fontFamilies = {
+    modern: "'Inter', sans-serif",
+    classic: "'Merriweather', serif",
+    elegant: "'Playfair Display', serif",
+    playful: "'Nunito', sans-serif",
+    mono: "'JetBrains Mono', monospace",
+  };
+  const fontFamily = fontFamilies[shopFont] || fontFamilies.modern;
+
+  const btnRadius = shopButtonStyle === 'pill' ? '9999px' : shopButtonStyle === 'square' ? '0px' : '0.5rem';
+
+  const cardClass = shopCardStyle === 'shadow' ? 'shadow-md' 
+    : shopCardStyle === 'border' ? 'border-2' 
+    : shopCardStyle === 'elevated' ? 'shadow-xl shadow-black/30' 
+    : '';
+
+  const gridColsClass = {
+    2: 'grid-cols-1 md:grid-cols-2',
+    3: 'grid-cols-2 md:grid-cols-3',
+    4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+    5: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
+    6: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6',
+  }[shopProductsPerRow] || 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+
+  const headerAlign = shopHeaderStyle === 'center' ? 'text-center items-center' : shopHeaderStyle === 'full' ? 'text-left' : 'text-left items-start';
+
+  // Load Google Fonts
+  useEffect(() => {
+    const fontMap = {
+      modern: 'Inter:wght@400;500;600;700',
+      classic: 'Merriweather:wght@400;700',
+      elegant: 'Playfair+Display:wght@400;500;600;700',
+      playful: 'Nunito:wght@400;600;700',
+      mono: 'JetBrains+Mono:wght@400;500;600',
+    };
+    const fontParam = fontMap[shopFont];
+    if (fontParam) {
+      const linkId = 'narucify-shop-font';
+      let link = document.getElementById(linkId);
+      if (!link) {
+        link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+      link.href = `https://fonts.googleapis.com/css2?family=${fontParam}&display=swap`;
+    }
+  }, [shopFont]);
+
   useEffect(() => {
     localStorage.setItem('dm-order-public-lang', language);
   }, [language]);
@@ -1071,6 +1129,55 @@ export default function MiniShopPage() {
     );
   }
 
+  // ==================== SHARED: Announcement bar, About, Footer ====================
+  const announcementBgColors = {
+    default: theme.headerBg,
+    red: 'bg-red-600',
+    green: 'bg-emerald-600',
+    blue: 'bg-blue-600',
+    yellow: 'bg-amber-500',
+    black: 'bg-black',
+    purple: 'bg-purple-600',
+  };
+
+  const renderAnnouncement = () => {
+    const text = shop?.shop_announcement;
+    if (!text) return null;
+    const bg = announcementBgColors[shop?.shop_announcement_bg] || announcementBgColors.default;
+    return (
+      <div className={`${bg} px-4 py-2 text-center`}>
+        <p className="text-xs md:text-sm font-medium text-white">{text}</p>
+      </div>
+    );
+  };
+
+  const renderAboutSection = () => {
+    const text = shop?.shop_about_text;
+    if (!text) return null;
+    return (
+      <div className={`max-w-4xl mx-auto px-4 py-8`}>
+        <div className={`${theme.cardBg} rounded-xl ${theme.cardBorder} border p-6 md:p-8`}>
+          <h3 className={`text-lg font-semibold ${theme.textPrimary} mb-3`} style={{ fontFamily }}>
+            {language === 'sr' ? 'O nama' : 'About Us'}
+          </h3>
+          <p className={`text-sm leading-relaxed ${theme.textSecondary}`} style={{ fontFamily }}>{text}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFooter = () => {
+    const text = shop?.shop_footer_text;
+    return (
+      <footer className={`${theme.headerBg} border-t ${theme.divider} px-4 py-6 mb-20`}>
+        <div className="max-w-5xl mx-auto text-center space-y-2">
+          {text && <p className={`text-xs ${theme.textSecondary}`} style={{ fontFamily }}>{text}</p>}
+          <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
+        </div>
+      </footer>
+    );
+  };
+
   // ==================== SHARED: Cart bar + watermark + styles ====================
   const renderCartBar = () => (
     <>
@@ -1317,7 +1424,8 @@ export default function MiniShopPage() {
   if (layout === 'boutique') {
     const displayProducts = getDisplayProducts();
     return (
-      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+      <div className={`min-h-screen ${theme.bg}`} style={{ fontFamily }} data-testid="mini-shop-page">
+        {renderAnnouncement()}
         {/* Ultra-minimal centered header */}
         <header className={`${theme.headerBg} px-4 py-6 text-center`}>
           <div className="max-w-4xl mx-auto">
@@ -1424,6 +1532,8 @@ export default function MiniShopPage() {
             ))}
           </div>
         </main>
+        {renderAboutSection()}
+        {renderFooter()}
         {renderCartBar()}
         {renderStyles()}
       </div>
@@ -1434,7 +1544,8 @@ export default function MiniShopPage() {
   if (layout === 'showcase') {
     const displayProducts = getDisplayProducts();
     return (
-      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+      <div className={`min-h-screen ${theme.bg}`} style={{ fontFamily }} data-testid="mini-shop-page">
+        {renderAnnouncement()}
         {/* Slim top bar */}
         <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-2`}>
           <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -1510,6 +1621,8 @@ export default function MiniShopPage() {
             </div>
           )}
         </main>
+        {renderAboutSection()}
+        {renderFooter()}
         {renderCartBar()}
         {renderStyles()}
       </div>
@@ -1520,7 +1633,8 @@ export default function MiniShopPage() {
   if (layout === 'storefront') {
     const displayProducts = getDisplayProducts();
     return (
-      <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+      <div className={`min-h-screen ${theme.bg}`} style={{ fontFamily }} data-testid="mini-shop-page">
+        {renderAnnouncement()}
         {/* Full-width header with integrated search */}
         <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-3`}>
           <div className="max-w-7xl mx-auto">
@@ -1631,6 +1745,8 @@ export default function MiniShopPage() {
             </div>
           )}
         </main>
+        {renderAboutSection()}
+        {renderFooter()}
         {renderCartBar()}
         {renderStyles()}
       </div>
@@ -1639,7 +1755,8 @@ export default function MiniShopPage() {
 
   // ==================== MAIN CATALOG ====================
   return (
-    <div className={`min-h-screen ${theme.bg}`} data-testid="mini-shop-page">
+    <div className={`min-h-screen ${theme.bg}`} style={{ fontFamily }} data-testid="mini-shop-page">
+      {renderAnnouncement()}
 
       {/* Header */}
       <header className={`sticky top-0 z-50 ${theme.headerBg} px-4 py-3`}>
@@ -1678,46 +1795,58 @@ export default function MiniShopPage() {
       </header>
 
       {/* Hero Banner */}
+      {shopHeroStyle === 'banner' && (
       <div className={`${theme.heroBg} px-4 py-12 md:py-16`}>
-        <div className="max-w-5xl mx-auto text-center">
+        <div className={`max-w-5xl mx-auto ${headerAlign === 'text-center items-center' ? 'text-center' : ''}`}>
           {shop?.shop_banner_url && (
             <div className="mb-6 rounded-2xl overflow-hidden max-h-48 md:max-h-64">
               <img src={shop.shop_banner_url} alt="" className="w-full h-full object-cover" />
             </div>
           )}
-          <h2 className={`text-3xl md:text-4xl font-bold ${theme.heroText} mb-3`}>
+          <h2 className={`text-3xl md:text-4xl font-bold ${theme.heroText} mb-3`} style={{ fontFamily }}>
             {shop?.seller_name}
           </h2>
-          <p className={`${theme.heroSub} max-w-lg mx-auto text-base md:text-lg`}>
+          <p className={`${theme.heroSub} max-w-lg ${headerAlign === 'text-center items-center' ? 'mx-auto' : ''} text-base md:text-lg`} style={{ fontFamily }}>
             {shop?.shop_description || t('browseProducts')}
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight}`}>
+          <div className={`mt-6 flex flex-wrap ${headerAlign === 'text-center items-center' ? 'justify-center' : ''} gap-3`}>
+            <span className={`inline-flex items-center gap-2 px-4 py-2 text-sm ${theme.accentLight}`} style={{ borderRadius: btnRadius }}>
               <Package className="w-4 h-4" />
               {shop?.products?.length || 0} {t('products').toLowerCase()}
             </span>
-            {/* Contact buttons */}
             {shop?.shop_instagram && (
               <a href={`https://instagram.com/${shop.shop_instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`} style={{ borderRadius: btnRadius }}>
                 <Instagram className="w-4 h-4" /> Instagram
               </a>
             )}
             {shop?.shop_whatsapp && (
               <a href={`https://wa.me/${shop.shop_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`} style={{ borderRadius: btnRadius }}>
                 <MessageCircle className="w-4 h-4" /> WhatsApp
               </a>
             )}
             {shop?.shop_viber && (
               <a href={`viber://chat?number=${shop.shop_viber.replace(/[^0-9]/g,'')}`}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`}>
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm ${theme.accentLight} hover:opacity-80 transition-opacity`} style={{ borderRadius: btnRadius }}>
                 <Phone className="w-4 h-4" /> Viber
               </a>
             )}
           </div>
         </div>
       </div>
+      )}
+      {shopHeroStyle === 'minimal' && (
+      <div className={`${theme.heroBg} px-4 py-6`}>
+        <div className={`max-w-5xl mx-auto flex ${headerAlign === 'text-center items-center' ? 'flex-col items-center' : 'items-center gap-4'}`}>
+          {shop?.logo_url && <img src={shop.logo_url} alt="" className="w-12 h-12 rounded-xl object-cover" />}
+          <div className={headerAlign === 'text-center items-center' ? 'text-center mt-2' : ''}>
+            <h2 className={`text-xl font-bold ${theme.heroText}`} style={{ fontFamily }}>{shop?.seller_name}</h2>
+            {shop?.shop_description && <p className={`text-sm ${theme.heroSub}`} style={{ fontFamily }}>{shop.shop_description}</p>}
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Products */}
       <main className="max-w-5xl mx-auto px-4 py-8 pb-32">
@@ -1796,7 +1925,7 @@ export default function MiniShopPage() {
                 layout === 'modern' ? 'grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6' :
                 layout === 'list' ? 'flex flex-col gap-3 md:gap-4' :
                 layout === 'magazine' ? 'grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5' :
-                'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5'
+                `grid ${gridColsClass} gap-4 md:gap-5`
               }>
                 {displayProducts.map((product, index) => {
               const inCart = cart.find(item => item.id === product.id);
@@ -1805,7 +1934,7 @@ export default function MiniShopPage() {
               return (
                 <div
                   key={product.id}
-                  className={`group ${layout === 'list' ? 'flex rounded-xl' : 'rounded-2xl'} overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300 ${isFeatured ? 'col-span-2 md:col-span-3' : ''}`}
+                  className={`group ${layout === 'list' ? 'flex rounded-xl' : 'rounded-2xl'} overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${cardClass} transition-all duration-300 ${isFeatured ? 'col-span-2 md:col-span-3' : ''}`}
                   style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
                 >
                   {/* Image */}
@@ -1903,7 +2032,7 @@ export default function MiniShopPage() {
                     <h3 className={`font-medium ${theme.textPrimary} ${layout === 'modern' || isFeatured ? 'text-base md:text-lg' : 'text-sm'} leading-tight mb-1.5 line-clamp-2`} title={product.name}>
                       {product.name}
                     </h3>
-                    {product.description && (
+                    {product.description && shopShowDesc && (
                       <p className={`text-xs ${theme.textSecondary} line-clamp-2 mb-2`}>{product.description}</p>
                     )}
                     {/* Price with sale support */}
@@ -1931,7 +2060,7 @@ export default function MiniShopPage() {
                         </div>
                       ) : (
                         <>
-                          <Button className={`w-full rounded-lg h-9 text-sm ${theme.accent} gap-1.5`} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
+                          <Button className={`w-full h-9 text-sm ${theme.accent} gap-1.5`} style={{ borderRadius: btnRadius }} size="sm" disabled={product.stock <= 0} onClick={() => addToCart(product)}>
                             <Plus className="w-3.5 h-3.5" />
                             {t('addToOrder')}
                           </Button>
@@ -1956,6 +2085,8 @@ export default function MiniShopPage() {
         )}
       </main>
 
+      {renderAboutSection()}
+      {renderFooter()}
       {renderCartBar()}
       {renderStyles()}
     </div>

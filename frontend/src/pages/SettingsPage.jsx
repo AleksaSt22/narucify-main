@@ -63,7 +63,16 @@ import {
   LayoutGrid,
   Rows3,
   Grid2x2,
-  Newspaper
+  Newspaper,
+  Type,
+  MousePointer,
+  Columns3,
+  AlignLeft,
+  AlignCenter,
+  RectangleHorizontal,
+  Megaphone,
+  Info,
+  SlidersHorizontal
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -97,6 +106,20 @@ export default function SettingsPage() {
   const [vacationMode, setVacationMode] = useState(user?.shop_vacation_mode ?? false);
   const [vacationMessage, setVacationMessage] = useState(user?.shop_vacation_message || '');
   const [savingFeature, setSavingFeature] = useState(null);
+
+  // Shop customizer states
+  const [shopAnnouncement, setShopAnnouncement] = useState(user?.shop_announcement || '');
+  const [shopAnnouncementBg, setShopAnnouncementBg] = useState(user?.shop_announcement_bg || 'default');
+  const [shopFont, setShopFont] = useState(user?.shop_font || 'modern');
+  const [shopButtonStyle, setShopButtonStyle] = useState(user?.shop_button_style || 'rounded');
+  const [shopCardStyle, setShopCardStyle] = useState(user?.shop_card_style || 'shadow');
+  const [shopHeaderStyle, setShopHeaderStyle] = useState(user?.shop_header_style || 'left');
+  const [shopProductsPerRow, setShopProductsPerRow] = useState(user?.shop_products_per_row || 4);
+  const [showProductDescription, setShowProductDescription] = useState(user?.shop_show_product_description ?? true);
+  const [shopAboutText, setShopAboutText] = useState(user?.shop_about_text || '');
+  const [shopFooterText, setShopFooterText] = useState(user?.shop_footer_text || '');
+  const [shopHeroStyle, setShopHeroStyle] = useState(user?.shop_hero_style || 'banner');
+  const [savingCustomizer, setSavingCustomizer] = useState(false);
 
   // Account management states
   const [editingField, setEditingField] = useState(null); // 'password' | 'email' | 'name'
@@ -600,6 +623,46 @@ export default function SettingsPage() {
       toast.error(language === 'sr' ? 'Greška' : 'Error');
     } finally {
       setSavingFeature(null);
+    }
+  };
+
+  const saveCustomizerField = async (field, value) => {
+    setSavingCustomizer(true);
+    try {
+      await axios.put(`${API_URL}/auth/profile`, { [field]: value });
+      toast.success(language === 'sr' ? 'Sačuvano!' : 'Saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving customizer field:', error);
+      toast.error(language === 'sr' ? 'Greška' : 'Error');
+    } finally {
+      setSavingCustomizer(false);
+    }
+  };
+
+  const saveAllCustomizer = async () => {
+    setSavingCustomizer(true);
+    try {
+      await axios.put(`${API_URL}/auth/profile`, {
+        shop_announcement: shopAnnouncement,
+        shop_announcement_bg: shopAnnouncementBg,
+        shop_font: shopFont,
+        shop_button_style: shopButtonStyle,
+        shop_card_style: shopCardStyle,
+        shop_header_style: shopHeaderStyle,
+        shop_products_per_row: shopProductsPerRow,
+        shop_show_product_description: showProductDescription,
+        shop_about_text: shopAboutText,
+        shop_footer_text: shopFooterText,
+        shop_hero_style: shopHeroStyle,
+      });
+      toast.success(language === 'sr' ? 'Podešavanja sačuvana!' : 'Settings saved!');
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      console.error('Error saving customizer:', error);
+      toast.error(language === 'sr' ? 'Greška pri čuvanju' : 'Error saving');
+    } finally {
+      setSavingCustomizer(false);
     }
   };
 
@@ -1316,6 +1379,246 @@ export default function SettingsPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* ========== SHOP CUSTOMIZER ========== */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-1">
+                <SlidersHorizontal className="w-4 h-4" />
+                {language === 'sr' ? 'Napredna podešavanja prodavnice' : 'Advanced Shop Customizer'}
+              </p>
+              <p className="text-xs text-zinc-500 mb-4">
+                {language === 'sr' ? 'Prilagodi svaki detalj prodavnice kao u Shopify-ju' : 'Customize every detail of your shop like in Shopify'}
+              </p>
+
+              <div className="space-y-5">
+                {/* Announcement Bar */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-amber-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Traka za obaveštenja' : 'Announcement Bar'}</p>
+                  </div>
+                  <p className="text-xs text-zinc-500">{language === 'sr' ? 'Prikazuje se na vrhu prodavnice (npr. "Besplatna dostava!", "Rasprodaja -30%!")' : 'Displayed at the top of your shop (e.g. "Free shipping!", "Sale -30%!")'}</p>
+                  <Input
+                    value={shopAnnouncement}
+                    onChange={e => setShopAnnouncement(e.target.value)}
+                    placeholder={language === 'sr' ? 'Npr. Besplatna dostava preko 2000 RSD!' : 'E.g. Free shipping over $50!'}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                    maxLength={200}
+                  />
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-2">{language === 'sr' ? 'Boja trake' : 'Bar color'}</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { val: 'default', label: language === 'sr' ? 'Podrazumevana' : 'Default', color: 'bg-zinc-700' },
+                        { val: 'red', label: language === 'sr' ? 'Crvena' : 'Red', color: 'bg-red-600' },
+                        { val: 'green', label: language === 'sr' ? 'Zelena' : 'Green', color: 'bg-emerald-600' },
+                        { val: 'blue', label: language === 'sr' ? 'Plava' : 'Blue', color: 'bg-blue-600' },
+                        { val: 'yellow', label: language === 'sr' ? 'Žuta' : 'Yellow', color: 'bg-amber-500' },
+                        { val: 'black', label: language === 'sr' ? 'Crna' : 'Black', color: 'bg-zinc-900 border border-zinc-600' },
+                        { val: 'purple', label: language === 'sr' ? 'Ljubičasta' : 'Purple', color: 'bg-purple-600' },
+                      ].map(opt => (
+                        <button key={opt.val} onClick={() => setShopAnnouncementBg(opt.val)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all ${shopAnnouncementBg === opt.val ? 'ring-2 ring-primary ring-offset-1 ring-offset-zinc-900' : 'opacity-70 hover:opacity-100'}`}>
+                          <span className={`w-3 h-3 rounded-full ${opt.color}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Font Selection */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Type className="w-4 h-4 text-blue-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Font prodavnice' : 'Shop Font'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {[
+                      { val: 'modern', label: 'Modern', family: 'Inter', preview: 'Aa' },
+                      { val: 'classic', label: 'Classic', family: 'Merriweather', preview: 'Aa' },
+                      { val: 'elegant', label: 'Elegant', family: 'Playfair Display', preview: 'Aa' },
+                      { val: 'playful', label: 'Playful', family: 'Nunito', preview: 'Aa' },
+                      { val: 'mono', label: 'Mono', family: 'JetBrains Mono', preview: 'Aa' },
+                    ].map(font => (
+                      <button key={font.val} onClick={() => setShopFont(font.val)}
+                        className={`p-3 rounded-lg border-2 transition-all text-center ${shopFont === font.val ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'}`}>
+                        <p className="text-2xl text-white mb-1" style={{ fontFamily: font.family }}>{font.preview}</p>
+                        <p className="text-xs text-zinc-400">{font.label}</p>
+                        <p className="text-[10px] text-zinc-600">{font.family}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hero Style */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <RectangleHorizontal className="w-4 h-4 text-green-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Stil zaglavlja' : 'Hero Style'}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { val: 'banner', label: language === 'sr' ? 'Baner' : 'Banner', desc: language === 'sr' ? 'Velika slika sa opisom' : 'Large image with description' },
+                      { val: 'minimal', label: language === 'sr' ? 'Minimalan' : 'Minimal', desc: language === 'sr' ? 'Samo logo i ime' : 'Just logo and name' },
+                      { val: 'none', label: language === 'sr' ? 'Bez zaglavlja' : 'No Hero', desc: language === 'sr' ? 'Direktno proizvodi' : 'Products directly' },
+                    ].map(opt => (
+                      <button key={opt.val} onClick={() => setShopHeroStyle(opt.val)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${shopHeroStyle === opt.val ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'}`}>
+                        <p className="text-sm font-medium text-white">{opt.label}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Header Alignment */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlignCenter className="w-4 h-4 text-indigo-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Poravnanje zaglavlja' : 'Header Alignment'}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[
+                      { val: 'left', label: language === 'sr' ? 'Levo' : 'Left', icon: AlignLeft },
+                      { val: 'center', label: language === 'sr' ? 'Centar' : 'Center', icon: AlignCenter },
+                      { val: 'full', label: language === 'sr' ? 'Puna širina' : 'Full Width', icon: Columns3 },
+                    ].map(opt => {
+                      const Icon = opt.icon;
+                      return (
+                        <button key={opt.val} onClick={() => setShopHeaderStyle(opt.val)}
+                          className={`flex-1 p-3 rounded-lg border-2 transition-all text-center ${shopHeaderStyle === opt.val ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'}`}>
+                          <Icon className="w-4 h-4 mx-auto mb-1 text-zinc-400" />
+                          <p className="text-xs text-zinc-300">{opt.label}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Button Style */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MousePointer className="w-4 h-4 text-pink-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Stil dugmadi' : 'Button Style'}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    {[
+                      { val: 'rounded', label: language === 'sr' ? 'Zaobljeno' : 'Rounded' },
+                      { val: 'square', label: language === 'sr' ? 'Kvadratno' : 'Square' },
+                      { val: 'pill', label: language === 'sr' ? 'Kapsulasto' : 'Pill' },
+                    ].map(opt => (
+                      <button key={opt.val} onClick={() => setShopButtonStyle(opt.val)}
+                        className={`flex-1 transition-all border-2 ${shopButtonStyle === opt.val ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'} ${opt.val === 'rounded' ? 'rounded-lg' : opt.val === 'square' ? 'rounded-none' : 'rounded-full'} p-3 text-center`}>
+                        <div className={`mx-auto w-16 h-6 bg-primary/30 mb-1.5 ${opt.val === 'rounded' ? 'rounded-md' : opt.val === 'square' ? 'rounded-none' : 'rounded-full'}`} />
+                        <p className="text-xs text-zinc-300">{opt.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Card Style */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="w-4 h-4 text-cyan-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Stil kartica proizvoda' : 'Product Card Style'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {[
+                      { val: 'shadow', label: language === 'sr' ? 'Senka' : 'Shadow', desc: language === 'sr' ? 'Meka senka' : 'Soft shadow' },
+                      { val: 'border', label: language === 'sr' ? 'Okvir' : 'Border', desc: language === 'sr' ? 'Vidljiv okvir' : 'Visible border' },
+                      { val: 'minimal', label: language === 'sr' ? 'Minimalan' : 'Minimal', desc: language === 'sr' ? 'Bez senke/okvira' : 'No shadow/border' },
+                      { val: 'elevated', label: language === 'sr' ? 'Izdignuto' : 'Elevated', desc: language === 'sr' ? 'Jaka senka' : 'Strong shadow' },
+                    ].map(opt => (
+                      <button key={opt.val} onClick={() => setShopCardStyle(opt.val)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${shopCardStyle === opt.val ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'}`}>
+                        <div className={`w-full h-8 rounded bg-zinc-700 mb-2 ${
+                          opt.val === 'shadow' ? 'shadow-md' : 
+                          opt.val === 'border' ? 'border-2 border-zinc-500' : 
+                          opt.val === 'minimal' ? '' : 
+                          'shadow-xl shadow-black/40'
+                        }`} />
+                        <p className="text-xs font-medium text-zinc-300">{opt.label}</p>
+                        <p className="text-[10px] text-zinc-500">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Products Per Row */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Columns3 className="w-4 h-4 text-violet-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Proizvoda po redu' : 'Products Per Row'}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[2, 3, 4, 5, 6].map(num => (
+                      <button key={num} onClick={() => setShopProductsPerRow(num)}
+                        className={`flex-1 p-2 rounded-lg border-2 transition-all text-center ${shopProductsPerRow === num ? 'border-primary bg-primary/5' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/50'}`}>
+                        <div className={`grid gap-0.5 mb-1.5 mx-auto w-12`} style={{ gridTemplateColumns: `repeat(${num}, 1fr)` }}>
+                          {[...Array(num)].map((_, i) => <div key={i} className="aspect-square bg-zinc-600 rounded-[1px]" />)}
+                        </div>
+                        <p className="text-xs text-zinc-300 font-medium">{num}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Show Product Description Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+                      <Info className="w-4 h-4 text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{language === 'sr' ? 'Prikaži opis proizvoda' : 'Show product descriptions'}</p>
+                      <p className="text-xs text-zinc-500">{language === 'sr' ? 'Opis se prikazuje na karticama u prodavnici' : 'Description shown on product cards in shop'}</p>
+                    </div>
+                  </div>
+                  <Switch checked={showProductDescription} onCheckedChange={setShowProductDescription} />
+                </div>
+
+                {/* About Text */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-orange-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'O prodavnici (sekcija)' : 'About Section'}</p>
+                  </div>
+                  <p className="text-xs text-zinc-500">{language === 'sr' ? 'Prikazuje se ispod proizvoda - ispričaj kupcima svoju priču' : 'Shown below products - tell customers your story'}</p>
+                  <Textarea
+                    value={shopAboutText}
+                    onChange={e => setShopAboutText(e.target.value)}
+                    placeholder={language === 'sr' ? 'Npr. Mi smo porodična firma koja pravi ručno rađene proizvode od 2015...' : 'E.g. We are a family business making handmade products since 2015...'}
+                    className="bg-zinc-900 border-zinc-700 text-white min-h-[80px]"
+                    maxLength={1000}
+                  />
+                </div>
+
+                {/* Footer Text */}
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-4 h-4 text-gray-400" />
+                    <p className="text-sm font-medium text-white">{language === 'sr' ? 'Tekst u podnožju' : 'Footer Text'}</p>
+                  </div>
+                  <Input
+                    value={shopFooterText}
+                    onChange={e => setShopFooterText(e.target.value)}
+                    placeholder={language === 'sr' ? 'Npr. © 2025 Moja Prodavnica. Sva prava zadržana.' : 'E.g. © 2025 My Shop. All rights reserved.'}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                    maxLength={300}
+                  />
+                </div>
+
+                {/* Save All Button */}
+                <Button onClick={saveAllCustomizer} disabled={savingCustomizer} className="w-full primary-gradient">
+                  {savingCustomizer ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  ) : (
+                    <><Check className="w-4 h-4 mr-2" /> {language === 'sr' ? 'Sačuvaj sva podešavanja' : 'Save all settings'}</>
+                  )}
+                </Button>
               </div>
             </div>
 

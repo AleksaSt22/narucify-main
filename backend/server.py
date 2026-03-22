@@ -332,6 +332,18 @@ class UpdateUserProfile(BaseModel):
     shop_quick_order: Optional[bool] = None
     shop_vacation_mode: Optional[bool] = None
     shop_vacation_message: Optional[str] = None
+    # Shop customizer
+    shop_announcement: Optional[str] = None
+    shop_announcement_bg: Optional[str] = None
+    shop_font: Optional[str] = None
+    shop_button_style: Optional[str] = None
+    shop_card_style: Optional[str] = None
+    shop_header_style: Optional[str] = None
+    shop_products_per_row: Optional[int] = None
+    shop_show_product_description: Optional[bool] = None
+    shop_about_text: Optional[str] = None
+    shop_footer_text: Optional[str] = None
+    shop_hero_style: Optional[str] = None
 
 class ProductCreate(BaseModel):
     name: str
@@ -797,6 +809,18 @@ async def get_me(user: dict = Depends(get_current_user)):
         "shop_vacation_mode": user.get("shop_vacation_mode", False),
         "shop_vacation_message": user.get("shop_vacation_message"),
         "paypal_subscription_status": user.get("paypal_subscription_status"),
+        # Shop customizer
+        "shop_announcement": user.get("shop_announcement", ""),
+        "shop_announcement_bg": user.get("shop_announcement_bg", "default"),
+        "shop_font": user.get("shop_font", "modern"),
+        "shop_button_style": user.get("shop_button_style", "rounded"),
+        "shop_card_style": user.get("shop_card_style", "shadow"),
+        "shop_header_style": user.get("shop_header_style", "left"),
+        "shop_products_per_row": user.get("shop_products_per_row", 4),
+        "shop_show_product_description": user.get("shop_show_product_description", True),
+        "shop_about_text": user.get("shop_about_text", ""),
+        "shop_footer_text": user.get("shop_footer_text", ""),
+        "shop_hero_style": user.get("shop_hero_style", "banner"),
     }
 
 @api_router.post("/auth/badges-seen")
@@ -845,6 +869,42 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         update_data["shop_vacation_mode"] = data.shop_vacation_mode
     if data.shop_vacation_message is not None:
         update_data["shop_vacation_message"] = data.shop_vacation_message[:300]
+    # Shop customizer fields
+    if data.shop_announcement is not None:
+        update_data["shop_announcement"] = data.shop_announcement[:200]
+    if data.shop_announcement_bg is not None:
+        valid_announcement_bgs = ["default", "red", "green", "blue", "yellow", "black", "purple"]
+        if data.shop_announcement_bg in valid_announcement_bgs:
+            update_data["shop_announcement_bg"] = data.shop_announcement_bg
+    if data.shop_font is not None:
+        valid_fonts = ["modern", "classic", "elegant", "playful", "mono"]
+        if data.shop_font in valid_fonts:
+            update_data["shop_font"] = data.shop_font
+    if data.shop_button_style is not None:
+        valid_btn = ["rounded", "square", "pill"]
+        if data.shop_button_style in valid_btn:
+            update_data["shop_button_style"] = data.shop_button_style
+    if data.shop_card_style is not None:
+        valid_card = ["shadow", "border", "minimal", "elevated"]
+        if data.shop_card_style in valid_card:
+            update_data["shop_card_style"] = data.shop_card_style
+    if data.shop_header_style is not None:
+        valid_header = ["left", "center", "full"]
+        if data.shop_header_style in valid_header:
+            update_data["shop_header_style"] = data.shop_header_style
+    if data.shop_products_per_row is not None:
+        if data.shop_products_per_row in [2, 3, 4, 5, 6]:
+            update_data["shop_products_per_row"] = data.shop_products_per_row
+    if data.shop_show_product_description is not None:
+        update_data["shop_show_product_description"] = data.shop_show_product_description
+    if data.shop_about_text is not None:
+        update_data["shop_about_text"] = data.shop_about_text[:1000]
+    if data.shop_footer_text is not None:
+        update_data["shop_footer_text"] = data.shop_footer_text[:300]
+    if data.shop_hero_style is not None:
+        valid_hero = ["banner", "minimal", "none"]
+        if data.shop_hero_style in valid_hero:
+            update_data["shop_hero_style"] = data.shop_hero_style
     
     if update_data:
         await db.users.update_one({"id": user["id"]}, {"$set": update_data})
@@ -1272,6 +1332,18 @@ async def get_public_shop(user_id: str):
         "shop_quick_order": seller.get("shop_quick_order", False),
         "shop_vacation_mode": seller.get("shop_vacation_mode", False),
         "shop_vacation_message": seller.get("shop_vacation_message", ""),
+        # Shop customizer
+        "shop_announcement": seller.get("shop_announcement", ""),
+        "shop_announcement_bg": seller.get("shop_announcement_bg", "default"),
+        "shop_font": seller.get("shop_font", "modern"),
+        "shop_button_style": seller.get("shop_button_style", "rounded"),
+        "shop_card_style": seller.get("shop_card_style", "shadow"),
+        "shop_header_style": seller.get("shop_header_style", "left"),
+        "shop_products_per_row": seller.get("shop_products_per_row", 4),
+        "shop_show_product_description": seller.get("shop_show_product_description", True),
+        "shop_about_text": seller.get("shop_about_text", ""),
+        "shop_footer_text": seller.get("shop_footer_text", ""),
+        "shop_hero_style": seller.get("shop_hero_style", "banner"),
         "products": products
     }
 
