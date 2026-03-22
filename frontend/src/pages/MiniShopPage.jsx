@@ -105,6 +105,13 @@ const translations = {
     backToProducts: 'Back to Products',
     otherProducts: 'Other Products',
     category: 'Category',
+    yourCart: 'Your Cart',
+    subtotal: 'Subtotal',
+    discount: 'Discount',
+    emptyCart: 'Your cart is empty',
+    clearCart: 'Clear cart',
+    close: 'Close',
+    savings: 'You save',
   },
   sr: {
     catalog: 'Prodavnica',
@@ -168,6 +175,13 @@ const translations = {
     backToProducts: 'Nazad na proizvode',
     otherProducts: 'Ostali proizvodi',
     category: 'Kategorija',
+    yourCart: 'Tvoja korpa',
+    subtotal: 'Međuzbir',
+    discount: 'Popust',
+    emptyCart: 'Tvoja korpa je prazna',
+    clearCart: 'Isprazni korpu',
+    close: 'Zatvori',
+    savings: 'Ušteda',
   }
 };
 
@@ -1194,60 +1208,158 @@ export default function MiniShopPage() {
   };
 
   // ==================== SHARED: Cart bar + watermark + styles ====================
-  const renderCartBar = () => (
-    <>
-      {cart.length > 0 && (
-        <div className={`fixed bottom-0 left-0 right-0 z-50 ${theme.cartBg}`}>
-          {cartOpen && (
-            <div className={`border-b ${theme.divider} max-h-64 overflow-y-auto`}>
-              <div className="max-w-5xl mx-auto p-4 space-y-3">
-                {cart.map(item => (
-                  <div key={item.id} className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
-                      {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : (
-                        <div className="w-full h-full flex items-center justify-center"><Package className={`w-4 h-4 ${theme.emptyIcon}`} /></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-sm ${theme.textPrimary} truncate`}>{item.name}</p>
-                      <p className={`text-xs ${theme.textSecondary}`}>{item.quantity} × {formatCurrency(item.price)}</p>
-                    </div>
-                    <p className={`font-semibold text-sm ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 rounded-full" onClick={() => removeFromCart(item.id)}>
-                      <X className="w-3.5 h-3.5" />
+  const renderCartBar = () => {
+    const subtotal = getSubtotal();
+    const total = getTotal();
+    const discountAmount = subtotal - total;
+    const hasDiscount = discountAmount > 0;
+
+    return (
+      <>
+        {/* Cart overlay backdrop */}
+        {cartOpen && cart.length > 0 && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40 transition-opacity" onClick={() => setCartOpen(false)} />
+        )}
+
+        {cart.length > 0 && (
+          <div className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300`}>
+            {/* Expanded cart drawer */}
+            <div className={`${theme.cartBg} rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 ${cartOpen ? 'max-h-[80vh]' : 'max-h-0'} overflow-hidden`}>
+              {/* Drawer header */}
+              <div className={`sticky top-0 z-10 ${theme.cardBg} border-b ${theme.divider} px-4 py-3`}>
+                <div className="max-w-5xl mx-auto flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className={`w-5 h-5 ${theme.cartIcon}`} />
+                    <h3 className={`font-semibold ${theme.textPrimary}`}>{t('yourCart')}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${theme.accentLight}`}>{getItemCount()} {t('items')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setCart([]); setCartOpen(false); }} className={`text-xs ${theme.textSecondary} hover:text-red-500 transition-colors px-2 py-1 rounded`}>
+                      {t('clearCart')}
+                    </button>
+                    <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${theme.textSecondary}`} onClick={() => setCartOpen(false)}>
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
-                ))}
+                </div>
+              </div>
+
+              {/* Cart items */}
+              <div className="max-h-[45vh] overflow-y-auto">
+                <div className="max-w-5xl mx-auto px-4 py-3 space-y-3">
+                  {cart.map(item => {
+                    const product = shop?.products?.find(p => p.id === item.id);
+                    const maxStock = product?.stock || 99;
+                    const itemImages = item.images && item.images.length > 0 ? item.images : (item.image_url ? [item.image_url] : []);
+                    return (
+                      <div key={item.id} className={`flex gap-3 p-3 rounded-xl ${theme.sectionBg} border ${theme.divider}`}>
+                        {/* Product image */}
+                        <div className={`w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden ${theme.imgPlaceholder} flex-shrink-0`}>
+                          {itemImages[0] ? (
+                            <img src={itemImages[0]} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><Package className={`w-6 h-6 ${theme.emptyIcon}`} /></div>
+                          )}
+                        </div>
+                        {/* Product info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`font-medium text-sm ${theme.textPrimary} line-clamp-2 leading-tight`}>{item.name}</p>
+                              <p className={`text-xs ${theme.textSecondary} mt-0.5`}>{formatCurrency(item.price)}</p>
+                            </div>
+                            <button onClick={() => removeFromCart(item.id)} className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${theme.textSecondary} hover:text-red-500 hover:bg-red-50 transition-colors`}>
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {/* Quantity controls + line total */}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-1.5">
+                              <Button size="sm" variant="outline" className={`h-7 w-7 p-0 ${theme.btnOutline}`} style={{ borderRadius: btnRadius }}
+                                onClick={() => { item.quantity <= 1 ? removeFromCart(item.id) : updateQuantity(item.id, -1); }}>
+                                {item.quantity <= 1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                              </Button>
+                              <span className={`w-8 text-center font-semibold text-sm ${theme.textPrimary}`}>{item.quantity}</span>
+                              <Button size="sm" variant="outline" className={`h-7 w-7 p-0 ${theme.btnOutline}`} style={{ borderRadius: btnRadius }}
+                                onClick={() => updateQuantity(item.id, 1)} disabled={item.quantity >= maxStock}>
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <p className={`font-bold text-sm ${theme.textPrice}`}>{formatCurrency(item.price * item.quantity)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Cart totals */}
+              <div className={`border-t ${theme.divider} px-4 py-3`}>
+                <div className="max-w-5xl mx-auto space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${theme.textSecondary}`}>{t('subtotal')}</span>
+                    <span className={`text-sm font-medium ${theme.textPrimary}`}>{formatCurrency(subtotal)}</span>
+                  </div>
+                  {hasDiscount && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-600">{t('discount')}</span>
+                      <span className="text-sm font-medium text-green-600">-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className={`flex items-center justify-between pt-1.5 border-t ${theme.divider}`}>
+                    <span className={`font-semibold ${theme.textPrimary}`}>{t('total')}</span>
+                    <span className={`text-xl font-bold ${theme.textPrice}`}>{formatCurrency(total)}</span>
+                  </div>
+                  {hasDiscount && (
+                    <p className="text-xs text-green-600 text-right">{t('savings')} {formatCurrency(discountAmount)}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Checkout button in drawer */}
+              <div className={`px-4 pb-4 pt-1`}>
+                <div className="max-w-5xl mx-auto">
+                  <Button className={`w-full ${theme.accent} h-12 rounded-xl text-base font-semibold gap-2`} style={{ borderRadius: btnRadius }} onClick={() => { setCartOpen(false); setShowCheckout(true); }}>
+                    {t('checkout')} — {formatCurrency(total)}
+                  </Button>
+                </div>
               </div>
             </div>
-          )}
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <button onClick={() => setCartOpen(!cartOpen)} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
-              <div className="relative">
-                <ShoppingCart className={`w-6 h-6 ${theme.cartIcon}`} />
-                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
-                  {getItemCount()}
-                </span>
+
+            {/* Collapsed bottom bar */}
+            {!cartOpen && (
+              <div className={`${theme.cartBg} shadow-[0_-4px_20px_rgba(0,0,0,0.08)]`}>
+                <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                  <button onClick={() => setCartOpen(true)} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
+                    <div className="relative">
+                      <ShoppingCart className={`w-6 h-6 ${theme.cartIcon}`} />
+                      <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${theme.badge} text-[10px] flex items-center justify-center font-bold`}>
+                        {getItemCount()}
+                      </span>
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-xs ${theme.textSecondary}`}>{getItemCount()} {t('items')}</p>
+                      <p className={`text-lg font-bold ${theme.textPrimary}`}>{formatCurrency(total)}</p>
+                    </div>
+                    <ChevronUp className={`w-4 h-4 ${theme.textSecondary}`} />
+                  </button>
+                  <Button className={`${theme.accent} px-8 h-12 rounded-xl text-base font-semibold`} style={{ borderRadius: btnRadius }} onClick={() => setShowCheckout(true)}>
+                    {t('checkout')}
+                  </Button>
+                </div>
               </div>
-              <div className="text-left">
-                <p className={`text-sm ${theme.textSecondary}`}>{getItemCount()} {t('items')}</p>
-                <p className={`text-lg font-bold ${theme.textPrimary}`}>{formatCurrency(getTotal())}</p>
-              </div>
-              <ChevronUp className={`w-4 h-4 ${theme.textSecondary} transition-transform ${cartOpen ? 'rotate-180' : ''}`} />
-            </button>
-            <Button className={`${theme.accent} px-8 h-12 rounded-xl text-base font-semibold`} onClick={() => setShowCheckout(true)}>
-              {t('checkout')}
-            </Button>
+            )}
           </div>
-        </div>
-      )}
-      {cart.length === 0 && (
-        <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
-          <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
-        </div>
-      )}
-    </>
-  );
+        )}
+        {cart.length === 0 && (
+          <div className={`fixed bottom-0 left-0 right-0 ${theme.watermarkBg} py-2.5 text-center`}>
+            <a href="/" className={`text-xs ${theme.watermarkText} hover:opacity-70 transition-opacity`}>{t('poweredBy')}</a>
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderStyles = () => (
     <style>{`
