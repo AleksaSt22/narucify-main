@@ -2236,6 +2236,14 @@ class ImageUploadData(BaseModel):
 @api_router.post("/upload/image")
 async def upload_image(data: ImageUploadData, user: dict = Depends(get_current_user)):
     try:
+        # Check Cloudinary config
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+        api_key = os.environ.get('CLOUDINARY_API_KEY', '')
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+        if not cloud_name or not api_key or not api_secret:
+            logger.error(f"Cloudinary not configured: cloud_name={'SET' if cloud_name else 'MISSING'}, api_key={'SET' if api_key else 'MISSING'}, api_secret={'SET' if api_secret else 'MISSING'}")
+            raise HTTPException(status_code=500, detail=f"Cloudinary not configured: cloud_name={'SET' if cloud_name else 'MISSING'}, api_key={'SET' if api_key else 'MISSING'}, api_secret={'SET' if api_secret else 'MISSING'}")
+        
         if len(data.image) > 7_000_000:
             raise HTTPException(status_code=400, detail="Image too large (max 5MB)")
         result = cloudinary.uploader.upload(
@@ -2249,8 +2257,8 @@ async def upload_image(data: ImageUploadData, user: dict = Depends(get_current_u
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Image upload error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload image")
+        logger.error(f"Image upload error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {type(e).__name__}: {str(e)}")
 
 
 # ==================== ONBOARDING ====================

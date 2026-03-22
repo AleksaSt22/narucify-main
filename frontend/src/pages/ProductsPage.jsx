@@ -510,7 +510,7 @@ export default function ProductsPage() {
                               setFormData(prev => ({ ...prev, image_url: res.data.url }));
                               toast.success(language === 'sr' ? 'Slika otpremljena!' : 'Image uploaded!');
                             } catch (err) {
-                              toast.error(language === 'sr' ? 'Greška pri otpremanju slike' : 'Error uploading image');
+                              toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri otpremanju slike' : 'Error uploading image'));
                             } finally {
                               setUploadingImage(false);
                             }
