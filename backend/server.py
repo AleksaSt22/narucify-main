@@ -318,6 +318,7 @@ class UpdateUserProfile(BaseModel):
     logo_url: Optional[str] = None
     default_delivery_days: Optional[int] = None
     shop_theme: Optional[str] = None
+    shop_layout: Optional[str] = None
     shop_description: Optional[str] = None
     shop_banner_url: Optional[str] = None
     # Social contact links
@@ -791,6 +792,7 @@ async def get_me(user: dict = Depends(get_current_user)):
         "shop_instagram": user.get("shop_instagram"),
         "shop_whatsapp": user.get("shop_whatsapp"),
         "shop_phone": user.get("shop_phone"),
+        "shop_layout": user.get("shop_layout", "classic"),
         "shop_vacation_mode": user.get("shop_vacation_mode", False),
         "shop_vacation_message": user.get("shop_vacation_message"),
         "paypal_subscription_status": user.get("paypal_subscription_status"),
@@ -815,6 +817,11 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
         if data.shop_theme not in valid_themes:
             raise HTTPException(status_code=400, detail="Invalid theme")
         update_data["shop_theme"] = data.shop_theme
+    if data.shop_layout is not None:
+        valid_layouts = ["classic", "modern", "list", "magazine"]
+        if data.shop_layout not in valid_layouts:
+            raise HTTPException(status_code=400, detail="Invalid layout")
+        update_data["shop_layout"] = data.shop_layout
     if data.shop_description is not None:
         update_data["shop_description"] = data.shop_description[:500]
     if data.shop_banner_url is not None:
@@ -1251,6 +1258,7 @@ async def get_public_shop(user_id: str):
         "logo_url": seller.get("logo_url"),
         "is_pro": seller.get("is_pro", False),
         "shop_theme": seller.get("shop_theme", "elegance"),
+        "shop_layout": seller.get("shop_layout", "classic"),
         "shop_description": seller.get("shop_description", ""),
         "shop_banner_url": seller.get("shop_banner_url", ""),
         # Social & contact

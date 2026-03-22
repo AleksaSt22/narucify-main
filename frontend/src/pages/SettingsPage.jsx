@@ -59,7 +59,11 @@ import {
   Loader2,
   Lock,
   KeyRound,
-  Pencil
+  Pencil,
+  LayoutGrid,
+  Rows3,
+  Grid2x2,
+  Newspaper
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -78,8 +82,10 @@ export default function SettingsPage() {
   const [loadingShopProducts, setLoadingShopProducts] = useState(true);
   const [celebrationBadge, setCelebrationBadge] = useState(null);
   const [currentTheme, setCurrentTheme] = useState(user?.shop_theme || 'elegance');
+  const [currentLayout, setCurrentLayout] = useState(user?.shop_layout || 'classic');
   const [shopDescription, setShopDescription] = useState(user?.shop_description || '');
   const [savingTheme, setSavingTheme] = useState(false);
+  const [savingLayout, setSavingLayout] = useState(false);
 
   // Seller feature states
   const [shopInstagram, setShopInstagram] = useState(user?.shop_instagram || '');
@@ -555,6 +561,23 @@ export default function SettingsPage() {
     }
   };
 
+  const saveShopLayout = async (layoutKey) => {
+    const previousLayout = currentLayout;
+    setCurrentLayout(layoutKey);
+    setSavingLayout(true);
+    try {
+      await axios.put(`${API_URL}/auth/profile`, { shop_layout: layoutKey });
+      toast.success(language === 'sr' ? 'Dizajn sačuvan!' : 'Layout saved!');
+      if (refreshUser) await refreshUser();
+    } catch (error) {
+      console.error('Error saving layout:', error);
+      setCurrentLayout(previousLayout);
+      toast.error(language === 'sr' ? 'Greška pri čuvanju dizajna' : 'Error saving layout');
+    } finally {
+      setSavingLayout(false);
+    }
+  };
+
   const saveShopDescription = async () => {
     try {
       await axios.put(`${API_URL}/auth/profile`, { shop_description: shopDescription });
@@ -658,6 +681,52 @@ export default function SettingsPage() {
       label: 'Neon',
       desc: language === 'sr' ? 'Tamna tema sa neonsko zelenim akcentom' : 'Dark theme with neon green accent',
       preview: ['bg-gray-950', 'bg-gradient-to-r from-lime-500 to-green-500', 'bg-gray-800']
+    },
+  };
+
+  const layoutDisplayInfo = {
+    classic: {
+      label: 'Classic',
+      desc: language === 'sr' ? 'Standardna mreža - 4 proizvoda u redu' : 'Standard grid - 4 products per row',
+      icon: Grid2x2,
+      preview: (
+        <div className="grid grid-cols-4 gap-0.5 w-full">
+          {[...Array(8)].map((_, i) => <div key={i} className="aspect-square bg-zinc-600 rounded-[2px]" />)}
+        </div>
+      ),
+    },
+    modern: {
+      label: 'Modern',
+      desc: language === 'sr' ? 'Veće kartice sa više detalja - 2 u redu' : 'Larger cards with more details - 2 per row',
+      icon: LayoutGrid,
+      preview: (
+        <div className="grid grid-cols-2 gap-0.5 w-full">
+          {[...Array(4)].map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-600 rounded-[2px]" />)}
+        </div>
+      ),
+    },
+    list: {
+      label: 'List',
+      desc: language === 'sr' ? 'Horizontalne kartice - slika levo, detalji desno' : 'Horizontal cards - image left, details right',
+      icon: Rows3,
+      preview: (
+        <div className="flex flex-col gap-0.5 w-full">
+          {[...Array(4)].map((_, i) => <div key={i} className="flex gap-0.5"><div className="w-5 h-3 bg-zinc-600 rounded-[2px] flex-shrink-0" /><div className="flex-1 h-3 bg-zinc-700 rounded-[2px]" /></div>)}
+        </div>
+      ),
+    },
+    magazine: {
+      label: 'Magazine',
+      desc: language === 'sr' ? 'Prvi proizvod istaknut, ostali u mreži' : 'First product featured, rest in grid',
+      icon: Newspaper,
+      preview: (
+        <div className="flex flex-col gap-0.5 w-full">
+          <div className="aspect-[2/1] bg-zinc-600 rounded-[2px]" />
+          <div className="grid grid-cols-3 gap-0.5">
+            {[...Array(3)].map((_, i) => <div key={i} className="aspect-square bg-zinc-600 rounded-[2px]" />)}
+          </div>
+        </div>
+      ),
     },
   };
 
@@ -1164,6 +1233,48 @@ export default function SettingsPage() {
                     <p className="text-xs text-zinc-500 mt-0.5">{info.desc}</p>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Layout Picker */}
+            <div className="pt-4 border-t border-zinc-800">
+              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-1">
+                <LayoutGrid className="w-4 h-4" />
+                {language === 'sr' ? 'Dizajn prodavnice' : 'Shop Layout'}
+              </p>
+              <p className="text-xs text-zinc-500 mb-3">
+                {language === 'sr' ? 'Izaberi kako se proizvodi prikazuju kupcima' : 'Choose how products are displayed to customers'}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(layoutDisplayInfo).map(([key, info]) => {
+                  const Icon = info.icon;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => saveShopLayout(key)}
+                      disabled={savingLayout}
+                      className={`relative p-3 rounded-xl border-2 transition-all text-left ${
+                        currentLayout === key 
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
+                          : 'border-zinc-700 hover:border-zinc-600 bg-zinc-800/50'
+                      }`}
+                    >
+                      {currentLayout === key && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <div className="mb-2 p-2 rounded-lg bg-zinc-800 w-full aspect-square flex items-center justify-center">
+                        {info.preview}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Icon className="w-3.5 h-3.5 text-zinc-400" />
+                        <p className="font-medium text-white text-sm">{info.label}</p>
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-0.5">{info.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

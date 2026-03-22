@@ -588,6 +588,7 @@ export default function MiniShopPage() {
 
   const t = (key) => translations[language]?.[key] || key;
   const theme = themes[shop?.shop_theme] || themes.elegance;
+  const layout = shop?.shop_layout || 'classic';
 
   useEffect(() => {
     localStorage.setItem('dm-order-public-lang', language);
@@ -1225,18 +1226,29 @@ export default function MiniShopPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+              <div className={
+                layout === 'modern' ? 'grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6' :
+                layout === 'list' ? 'flex flex-col gap-3 md:gap-4' :
+                layout === 'magazine' ? 'grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5' :
+                'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5'
+              }>
                 {displayProducts.map((product, index) => {
               const inCart = cart.find(item => item.id === product.id);
               const justAdded = addedProductId === product.id;
+              const isFeatured = layout === 'magazine' && index === 0;
               return (
                 <div
                   key={product.id}
-                  className={`group rounded-2xl overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300`}
+                  className={`group ${layout === 'list' ? 'flex rounded-xl' : 'rounded-2xl'} overflow-hidden ${theme.cardBg} ${theme.cardBorder} ${theme.cardShadow} transition-all duration-300 ${isFeatured ? 'col-span-2 md:col-span-3' : ''}`}
                   style={{ animationDelay: `${index * 0.05}s`, animation: 'catalogFadeIn 0.4s ease-out forwards', opacity: 0 }}
                 >
                   {/* Image */}
-                  <div className="relative aspect-square overflow-hidden">
+                  <div className={`relative overflow-hidden ${
+                    layout === 'list' ? 'w-28 md:w-40 flex-shrink-0 aspect-square' :
+                    layout === 'modern' ? 'aspect-[3/4]' :
+                    isFeatured ? 'aspect-[2/1] md:aspect-[3/1]' :
+                    'aspect-square'
+                  }`}>
                     {(() => {
                       const images = product.images && product.images.length > 0 ? product.images : (product.image_url ? [product.image_url] : []);
                       const currentIdx = imageIndexes[product.id] || 0;
@@ -1321,8 +1333,8 @@ export default function MiniShopPage() {
                   </div>
 
                   {/* Info */}
-                  <div className="p-3.5">
-                    <h3 className={`font-medium ${theme.textPrimary} text-sm leading-tight mb-1.5 line-clamp-2`} title={product.name}>
+                  <div className={`p-3.5 ${layout === 'list' ? 'flex-1 flex flex-col justify-center min-w-0' : ''}`}>
+                    <h3 className={`font-medium ${theme.textPrimary} ${layout === 'modern' || isFeatured ? 'text-base md:text-lg' : 'text-sm'} leading-tight mb-1.5 line-clamp-2`} title={product.name}>
                       {product.name}
                     </h3>
                     {product.description && (
