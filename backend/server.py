@@ -8,6 +8,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
+# v2 - shop layout support
 from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
