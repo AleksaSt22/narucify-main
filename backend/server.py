@@ -811,7 +811,7 @@ async def update_profile(data: UpdateUserProfile, user: dict = Depends(get_curre
     if data.default_delivery_days is not None:
         update_data["default_delivery_days"] = data.default_delivery_days
     if data.shop_theme is not None:
-        valid_themes = ["elegance", "midnight", "sunset", "nature", "ocean", "minimal"]
+        valid_themes = ["elegance", "midnight", "sunset", "nature", "ocean", "minimal", "cherry", "lavender", "gold", "arctic", "coffee", "neon"]
         if data.shop_theme in valid_themes:
             update_data["shop_theme"] = data.shop_theme
     if data.shop_description is not None:

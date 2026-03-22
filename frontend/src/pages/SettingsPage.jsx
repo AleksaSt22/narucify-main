@@ -627,6 +627,36 @@ export default function SettingsPage() {
       desc: language === 'sr' ? 'Čist minimalistički dizajn' : 'Clean minimalist design',
       preview: ['bg-white', 'bg-neutral-900', 'bg-neutral-100']
     },
+    cherry: {
+      label: 'Cherry',
+      desc: language === 'sr' ? 'Romantik roze-crveni tonovi' : 'Romantic pink-red tones',
+      preview: ['bg-rose-50', 'bg-rose-600', 'bg-rose-100']
+    },
+    lavender: {
+      label: 'Lavender',
+      desc: language === 'sr' ? 'Nežni ljubičasti tonovi' : 'Soft purple tones',
+      preview: ['bg-purple-50', 'bg-gradient-to-r from-purple-500 to-violet-600', 'bg-purple-100']
+    },
+    gold: {
+      label: 'Gold',
+      desc: language === 'sr' ? 'Luksuzni zlatni tonovi' : 'Luxurious gold tones',
+      preview: ['bg-amber-50', 'bg-gradient-to-r from-amber-500 to-yellow-500', 'bg-amber-100']
+    },
+    arctic: {
+      label: 'Arctic',
+      desc: language === 'sr' ? 'Tamna tema sa ledeno plavim akcentom' : 'Dark theme with icy blue accent',
+      preview: ['bg-sky-950', 'bg-sky-500', 'bg-sky-800']
+    },
+    coffee: {
+      label: 'Coffee',
+      desc: language === 'sr' ? 'Tamna topla braon tema' : 'Dark warm brown theme',
+      preview: ['bg-amber-950', 'bg-amber-600', 'bg-amber-800']
+    },
+    neon: {
+      label: 'Neon',
+      desc: language === 'sr' ? 'Tamna tema sa neonsko zelenim akcentom' : 'Dark theme with neon green accent',
+      preview: ['bg-gray-950', 'bg-gradient-to-r from-lime-500 to-green-500', 'bg-gray-800']
+    },
   };
 
   return (
@@ -1105,7 +1135,7 @@ export default function SettingsPage() {
                 <Palette className="w-4 h-4" />
                 {language === 'sr' ? 'Tema prodavnice' : 'Shop Theme'}
               </p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Object.entries(themeDisplayInfo).map(([key, info]) => (
                   <button
                     key={key}
