@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
@@ -215,7 +215,11 @@ PLAN_LIMITS = {
 }
 
 def get_user_plan(user: dict) -> str:
-    """Get effective plan for user, considering trial/subscription status."""
+    """Get effective plan for user, considering admin override, trial/subscription status."""
+    # Admin override takes priority
+    override = user.get("admin_plan_override")
+    if override and override in PLAN_LIMITS:
+        return override
     plan = user.get("plan", "starter")
     if plan == "starter":
         return "starter"
@@ -1355,6 +1359,25 @@ async def update_user_features(user_id: str, data: UpdateUserFeatures, admin: di
         {"id": user_id},
         {"$set": {"features": data.features}}
     )
+    
+    updated_user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    return updated_user
+
+@api_router.put("/admin/users/{user_id}/plan")
+async def update_user_plan(user_id: str, data: dict = Body(...), admin: dict = Depends(get_admin_user)):
+    """Admin override: set a user's effective plan (or clear override)"""
+    plan = data.get("plan")
+    if plan and plan not in PLAN_LIMITS:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if plan:
+        await db.users.update_one({"id": user_id}, {"$set": {"admin_plan_override": plan}})
+    else:
+        await db.users.update_one({"id": user_id}, {"$unset": {"admin_plan_override": ""}})
     
     updated_user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
     return updated_user

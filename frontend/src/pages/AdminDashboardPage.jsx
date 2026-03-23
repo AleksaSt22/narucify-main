@@ -28,7 +28,8 @@ import {
   Search,
   Eye,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  Crown
 } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -43,6 +44,7 @@ export default function AdminDashboardPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userDetailOpen, setUserDetailOpen] = useState(false);
   const [savingFeatures, setSavingFeatures] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('dm-order-admin-token');
@@ -126,6 +128,20 @@ export default function AdminDashboardPage() {
       fetchData();
     } catch (error) {
       toast.error('Greška pri brisanju');
+    }
+  };
+
+  const updateUserPlan = async (userId, plan) => {
+    setSavingPlan(true);
+    try {
+      const res = await axios.put(`${API_URL}/admin/users/${userId}/plan`, { plan: plan || null });
+      setSelectedUser(res.data);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, admin_plan_override: plan || null } : u));
+      toast.success(plan ? `Plan postavljen na ${plan.toUpperCase()}` : 'Override uklonjen');
+    } catch (error) {
+      toast.error('Greška pri promeni plana');
+    } finally {
+      setSavingPlan(false);
     }
   };
 
@@ -307,7 +323,14 @@ export default function AdminDashboardPage() {
                         {user.business_name?.[0]?.toUpperCase() || 'U'}
                       </div>
                       <div>
-                        <p className="font-medium text-foreground">{user.business_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-foreground">{user.business_name}</p>
+                          {user.admin_plan_override && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+                              {user.admin_plan_override.toUpperCase()}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
@@ -376,6 +399,51 @@ export default function AdminDashboardPage() {
                   <div className="p-3 rounded-lg bg-background border border-border text-center">
                     <p className="text-lg font-bold text-primary">{formatCurrency(selectedUser.stats?.total_revenue || 0)}</p>
                     <p className="text-xs text-muted-foreground">Prihod</p>
+                  </div>
+                </div>
+
+                {/* Plan Override Control */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-foreground flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-yellow-500" />
+                    Plan korisnika
+                  </h3>
+                  <div className="p-4 rounded-lg bg-background border border-border space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>Trenutni plan:</span>
+                      <Badge variant="outline" className="font-medium">
+                        {(selectedUser.plan || 'starter').toUpperCase()}
+                      </Badge>
+                      {selectedUser.admin_plan_override && (
+                        <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+                          Admin override: {selectedUser.admin_plan_override.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {['starter', 'rast', 'biznis'].map(plan => {
+                        const isActive = selectedUser.admin_plan_override === plan;
+                        return (
+                          <Button
+                            key={plan}
+                            size="sm"
+                            variant={isActive ? 'default' : 'outline'}
+                            className={isActive ? 'primary-gradient' : ''}
+                            disabled={savingPlan}
+                            onClick={() => updateUserPlan(selectedUser.id, isActive ? null : plan)}
+                          >
+                            {plan === 'biznis' && <Crown className="w-3 h-3" />}
+                            {plan.toUpperCase()}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedUser.admin_plan_override 
+                        ? 'Kliknite na aktivan plan da uklonite override.' 
+                        : 'Kliknite na plan da ga dodelite korisniku.'
+                      }
+                    </p>
                   </div>
                 </div>
 
