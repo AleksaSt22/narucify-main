@@ -213,18 +213,15 @@ export default function ProductsPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={async () => {
-                try {
-                  const res = await axios.get(`${API_URL}/products/csv-template`, { responseType: 'blob' });
-                  const url = window.URL.createObjectURL(new Blob([res.data]));
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'narucify-template.csv';
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                } catch (err) {
-                  toast.error(language === 'sr' ? 'Greška pri preuzimanju' : 'Download error');
-                }
+              onClick={() => {
+                const csv = 'name,price,description,stock,category\nPrimer proizvod,1500,Opis proizvoda,10,Kategorija';
+                const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'narucify-template.csv';
+                a.click();
+                URL.revokeObjectURL(url);
               }}
             >
               <Download className="w-3.5 h-3.5" />
