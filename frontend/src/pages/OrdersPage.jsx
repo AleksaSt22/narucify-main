@@ -53,7 +53,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
 
 export default function OrdersPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
