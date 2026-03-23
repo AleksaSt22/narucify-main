@@ -213,10 +213,22 @@ export default function ProductsPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => window.open(`${API_URL}/products/csv-template`, '_blank')}
+              onClick={async () => {
+                try {
+                  const res = await axios.get(`${API_URL}/products/csv-template`, { responseType: 'blob' });
+                  const url = window.URL.createObjectURL(new Blob([res.data]));
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'narucify-template.csv';
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                } catch (err) {
+                  toast.error(language === 'sr' ? 'Greška pri preuzimanju' : 'Download error');
+                }
+              }}
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">CSV {language === 'sr' ? 'šablon' : 'template'}</span>
+              CSV {language === 'sr' ? 'šablon' : 'template'}
             </Button>
             <label>
               <input
@@ -255,7 +267,7 @@ export default function ProductsPage() {
               <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" asChild disabled={csvImporting}>
                 <span>
                   {csvImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">CSV {language === 'sr' ? 'uvoz' : 'import'}</span>
+                  CSV {language === 'sr' ? 'uvoz' : 'import'}
                 </span>
               </Button>
             </label>
