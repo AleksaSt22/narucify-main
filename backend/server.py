@@ -579,14 +579,13 @@ async def health_check():
     }
 
 @api_router.get("/test-email/{email}")
-async def test_email(email: str):
-    """Test endpoint to debug Resend email sending"""
+async def test_email(email: str, user: dict = Depends(get_current_user)):
+    """Test endpoint to debug Resend email sending (admin only)"""
     test_token = str(uuid.uuid4())
     result = await send_verification_email(email, test_token)
     return {
         "email_to": email,
         "resend_api_key_set": bool(RESEND_API_KEY),
-        "resend_api_key_prefix": RESEND_API_KEY[:12] + "..." if RESEND_API_KEY else "NOT SET",
         "from_email": RESEND_FROM_EMAIL,
         "frontend_url": FRONTEND_URL,
         "verify_url": f"{FRONTEND_URL}/verify-email/{test_token}",
@@ -1527,6 +1526,7 @@ async def import_products_csv(file: UploadFile = File(...), user: dict = Depends
             "description": desc[:1000],
             "stock": max(0, stock),
             "category": cat[:100],
+            "image_url": "",
             "images": [],
             "show_in_shop": False,
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -1561,8 +1561,11 @@ class ReviewCreate(BaseModel):
     customer_name: Optional[str] = ""
 
 @api_router.post("/public/reviews")
-async def create_review(data: ReviewCreate):
+async def create_review(data: ReviewCreate, request: Request):
     """Public endpoint - customers can submit reviews"""
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"review:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
     # Verify product exists
     product = await db.products.find_one({"id": data.product_id})
     if not product:
@@ -1640,7 +1643,7 @@ async def create_order(data: OrderCreate, user: dict = Depends(get_current_user)
             "name": product["name"],
             "price": product["price"],
             "quantity": item.quantity,
-            "image_url": product["image_url"],
+            "image_url": product.get("image_url", ""),
             "subtotal": item_total
         })
         total += item_total
@@ -2383,6 +2386,7 @@ async def get_analytics_overview(
     city_pipeline = [
         {"$match": {
             "user_id": uid,
+            "status": "completed",
             "customer.city": {"$exists": True, "$ne": ""}
         }},
         {"$group": {

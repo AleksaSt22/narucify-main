@@ -20,6 +20,21 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // Auto-logout on 401 responses
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response?.status === 401 && token) {
+          logout();
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
   const fetchUser = async () => {
     try {
       const response = await axios.get(`${API_URL}/auth/me`);

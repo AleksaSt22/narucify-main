@@ -84,7 +84,7 @@ export default function DashboardPage() {
       const key = d.toISOString().slice(0, 10);
       const dayLabel = d.toLocaleDateString(language === 'sr' ? 'sr-Latn' : 'en', { weekday: 'short' });
       const dayRevenue = allOrders
-        .filter(o => o.created_at?.startsWith(key) && o.status !== 'canceled')
+        .filter(o => o.created_at?.startsWith(key) && o.status === 'completed')
         .reduce((s, o) => s + (o.total || 0), 0);
       days.push({ label: dayLabel, value: dayRevenue });
     }
@@ -96,7 +96,7 @@ export default function DashboardPage() {
   // Today's stats
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayOrders = allOrders.filter(o => o.created_at?.startsWith(todayStr));
-  const todayRevenue = todayOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const todayRevenue = todayOrders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.total || 0), 0);
 
   if (loading) {
     return (
