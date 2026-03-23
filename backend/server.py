@@ -2337,7 +2337,7 @@ async def get_analytics_overview(
         {"$match": {
             "user_id": uid,
             "created_at": {"$gte": start_date},
-            "status": {"$nin": ["pending_customer", "canceled"]}
+            "status": "completed"
         }},
         {"$addFields": {
             "day": {"$substr": ["$created_at", 0, 10]}
@@ -2355,7 +2355,7 @@ async def get_analytics_overview(
     top_products_pipeline = [
         {"$match": {
             "user_id": uid,
-            "status": {"$nin": ["pending_customer", "canceled"]}
+            "status": "completed"
         }},
         {"$unwind": "$items"},
         {"$group": {
@@ -2400,7 +2400,7 @@ async def get_analytics_overview(
         {"$match": {
             "user_id": uid,
             "created_at": {"$gte": start_date},
-            "status": {"$nin": ["pending_customer", "canceled"]}
+            "status": "completed"
         }},
         {"$group": {
             "_id": None,
@@ -2418,7 +2418,7 @@ async def get_analytics_overview(
         {"$match": {
             "user_id": uid,
             "created_at": {"$gte": prev_start, "$lt": start_date},
-            "status": {"$nin": ["pending_customer", "canceled"]}
+            "status": "completed"
         }},
         {"$group": {
             "_id": None,
