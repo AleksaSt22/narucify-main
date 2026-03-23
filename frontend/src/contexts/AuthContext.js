@@ -64,6 +64,13 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
+  const googleLogin = async (credential) => {
+    const response = await axios.post(`${API_URL}/auth/google`, { credential });
+    const { token: newToken, user: userData } = response.data;
+    loginWithToken(newToken, userData);
+    return response.data;
+  };
+
   const logout = () => {
     localStorage.removeItem('dm-order-token');
     delete axios.defaults.headers.common['Authorization'];
@@ -78,7 +85,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, loginWithToken, register, logout, refreshUser, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginWithToken, googleLogin, register, logout, refreshUser, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

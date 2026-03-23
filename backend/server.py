@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
@@ -18,6 +18,8 @@ import time
 from collections import defaultdict
 import httpx
 import base64
+import csv
+import io
 import cloudinary
 import cloudinary.uploader
 
@@ -53,9 +55,16 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'dm-order-system-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
-# Admin credentials from env or defaults
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@narucify.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+# Admin credentials from env (REQUIRED for production — no insecure defaults)
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '')
+ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH', '')  # bcrypt hash
+# Fallback: plain-text password from env, hashed at startup
+_admin_plain = os.environ.get('ADMIN_PASSWORD', '')
+if not ADMIN_PASSWORD_HASH and _admin_plain:
+    ADMIN_PASSWORD_HASH = bcrypt.hashpw(_admin_plain.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+# Google OAuth
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 # Frontend URL for OG redirects
 _raw_frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
@@ -251,6 +260,51 @@ async def create_notification(user_id: str, title: str, message: str, notificati
     }
     await db.notifications.insert_one(notif_doc)
 
+# Customer order status email notification
+STATUS_LABELS = {
+    "confirmed": ("Porudžbina potvrđena", "Tvoja porudžbina je potvrđena i biće uskoro obrađena."),
+    "shipped": ("Porudžbina poslata", "Tvoja porudžbina je poslata! Očekuj je uskoro."),
+    "completed": ("Porudžbina isporučena", "Tvoja porudžbina je uspešno isporučena. Hvala ti na kupovini!"),
+    "canceled": ("Porudžbina otkazana", "Nažalost, tvoja porudžbina je otkazana. Za više informacija kontaktiraj prodavca."),
+}
+
+async def send_order_status_email(customer_email: str, order_number: str, new_status: str, business_name: str, tracking_id: str = None):
+    """Send email to customer when order status changes"""
+    if not RESEND_API_KEY or not customer_email:
+        return
+    label = STATUS_LABELS.get(new_status)
+    if not label:
+        return
+    title, description = label
+    tracking_html = ""
+    if tracking_id and new_status in ("shipped", "confirmed"):
+        track_url = f"{FRONTEND_URL}/track/{tracking_id}"
+        tracking_html = f'<p style="margin: 16px 0 0;"><a href="{track_url}" style="display: inline-block; background: linear-gradient(135deg, #FF5500, #FF7700); color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600;">Prati porudžbinu</a></p>'
+    html_body = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #FF5500, #FF7700); width: 48px; height: 48px; border-radius: 12px; line-height: 48px; color: white; font-weight: bold; font-size: 24px;">N</div>
+            <h1 style="margin: 12px 0 0; font-size: 20px; color: #111;">{business_name}</h1>
+        </div>
+        <div style="background: #f9f9f9; border-radius: 12px; padding: 32px; text-align: center;">
+            <h2 style="margin: 0 0 8px; color: #111; font-size: 20px;">{title}</h2>
+            <p style="color: #666; margin: 0 0 16px; font-size: 14px;">Porudžbina: <strong>{order_number}</strong></p>
+            <p style="color: #666; margin: 0; line-height: 1.5;">{description}</p>
+            {tracking_html}
+        </div>
+        <p style="text-align: center; color: #999; font-size: 11px; margin-top: 24px;">Ovaj email je poslat preko Narucify platforme.</p>
+    </div>
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client_http:
+            await client_http.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={"from": RESEND_FROM_EMAIL, "to": [customer_email], "subject": f"{title} — {order_number}", "html": html_body}
+            )
+    except Exception as e:
+        logger.error(f"Failed to send order status email: {e}")
+
 app = FastAPI(
     title="Narucify API",
     description="Narucify - API za Instagram/WhatsApp prodavce",
@@ -323,6 +377,11 @@ async def startup_db():
         await db.coupons.create_index("id", unique=True)
         await db.coupons.create_index("user_id")
         await db.coupons.create_index([("user_id", 1), ("code", 1)], unique=True)
+
+        # Reviews indexes
+        await db.reviews.create_index("id", unique=True)
+        await db.reviews.create_index("product_id")
+        await db.reviews.create_index("shop_id")
 
         logger.info("MongoDB indexes created successfully")
 
@@ -685,6 +744,104 @@ async def register(data: UserCreate):
             "onboarding_completed": False,
             "features": user_doc["features"]
         }
+    }
+
+
+# ==================== GOOGLE OAUTH ====================
+class GoogleAuthRequest(BaseModel):
+    credential: str  # Google ID token
+
+@api_router.post("/auth/google")
+async def google_auth(data: GoogleAuthRequest):
+    """Authenticate via Google Sign-In"""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="Google Sign-In not configured")
+    
+    # Verify the Google ID token
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client_http:
+            resp = await client_http.get(
+                f"https://oauth2.googleapis.com/tokeninfo?id_token={data.credential}"
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid Google token")
+            payload = resp.json()
+    except httpx.RequestError:
+        raise HTTPException(status_code=500, detail="Failed to verify Google token")
+    
+    if payload.get("aud") != GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=401, detail="Token audience mismatch")
+    
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not found in Google token")
+    
+    # Check if user exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        # Login existing user
+        token = create_token(existing["id"], email)
+        return {
+            "token": token,
+            "user": {
+                "id": existing["id"],
+                "email": email,
+                "business_name": existing.get("business_name", ""),
+                "referral_code": existing.get("referral_code", ""),
+                "is_pro": existing.get("is_pro", False),
+                "onboarding_completed": existing.get("onboarding_completed", True),
+                "features": existing.get("features", {})
+            },
+            "is_new": False
+        }
+    
+    # Register new user
+    name = payload.get("name", email.split("@")[0])
+    user_id = str(uuid.uuid4())
+    referral_code = generate_referral_code()
+    trial_ends = (datetime.now(timezone.utc) + timedelta(days=21)).isoformat()
+    user_doc = {
+        "id": user_id,
+        "email": email,
+        "password": "",  # No password for Google users
+        "business_name": name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "referral_code": referral_code,
+        "referred_by": None,
+        "referral_count": 0,
+        "plan": "starter",
+        "trial_ends_at": trial_ends,
+        "is_pro": False,
+        "pro_expires_at": None,
+        "logo_url": None,
+        "default_delivery_days": 3,
+        "badges": [],
+        "email_verified": True,
+        "onboarding_completed": False,
+        "google_id": payload.get("sub"),
+        "avatar_url": payload.get("picture"),
+        "features": {
+            "analytics": False, "finances": False, "customer_management": False,
+            "email_marketing": False, "inventory_view": False, "custom_branding": False,
+            "priority_support": False
+        }
+    }
+    await db.users.insert_one(user_doc)
+    token = create_token(user_id, email)
+    await log_audit(user_id, "register_google", {"email": email})
+    
+    return {
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": email,
+            "business_name": name,
+            "referral_code": referral_code,
+            "is_pro": False,
+            "onboarding_completed": False,
+            "features": user_doc["features"]
+        },
+        "is_new": True
     }
 
 
@@ -1071,7 +1228,14 @@ async def change_business_name(data: ChangeBusinessName, user: dict = Depends(ge
 
 @api_router.post("/admin/login", response_model=dict)
 async def admin_login(data: UserLogin):
-    if data.email != ADMIN_EMAIL or data.password != ADMIN_PASSWORD:
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
+        raise HTTPException(status_code=401, detail="Admin credentials not configured")
+    if data.email != ADMIN_EMAIL:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    try:
+        if not bcrypt.checkpw(data.password.encode('utf-8'), ADMIN_PASSWORD_HASH.encode('utf-8')):
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
     
     token = create_token("admin", ADMIN_EMAIL, is_admin=True)
@@ -1310,6 +1474,151 @@ async def delete_product(product_id: str, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": "Product deleted"}
 
+# ==================== CSV IMPORT ====================
+
+@api_router.post("/products/import-csv")
+async def import_products_csv(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Import products from CSV file. Columns: name, price, description, stock, category"""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 2MB)")
+    
+    plan = get_user_plan(user)
+    limits = get_plan_limits(plan)
+    existing_count = await db.products.count_documents({"user_id": user["id"]})
+    
+    try:
+        text = content.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        text = content.decode('latin-1')
+    
+    reader = csv.DictReader(io.StringIO(text))
+    imported = 0
+    errors = []
+    for i, row in enumerate(reader, start=2):
+        if existing_count + imported >= limits["max_products"]:
+            errors.append(f"Red {i}: Dostignut limit proizvoda ({limits['max_products']})")
+            break
+        name = (row.get('name') or row.get('naziv') or '').strip()
+        price_str = (row.get('price') or row.get('cena') or '0').strip().replace(',', '.')
+        if not name:
+            errors.append(f"Red {i}: Nedostaje naziv")
+            continue
+        try:
+            price = float(price_str)
+        except ValueError:
+            errors.append(f"Red {i}: Nevalidna cena '{price_str}'")
+            continue
+        stock_str = (row.get('stock') or row.get('stanje') or row.get('kolicina') or '0').strip()
+        try:
+            stock = int(float(stock_str))
+        except ValueError:
+            stock = 0
+        desc = (row.get('description') or row.get('opis') or '').strip()
+        cat = (row.get('category') or row.get('kategorija') or '').strip()
+        product_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "name": name[:200],
+            "price": price,
+            "description": desc[:1000],
+            "stock": max(0, stock),
+            "category": cat[:100],
+            "images": [],
+            "show_in_shop": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.products.insert_one(product_doc)
+        imported += 1
+    
+    return {"imported": imported, "errors": errors}
+
+@api_router.get("/products/csv-template")
+async def get_csv_template(user: dict = Depends(get_current_user)):
+    """Download CSV template for product import"""
+    from fastapi.responses import StreamingResponse
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["name", "price", "description", "stock", "category"])
+    writer.writerow(["Primer proizvod", "1500", "Opis proizvoda", "10", "Kategorija"])
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=narucify-template.csv"}
+    )
+
+# ==================== PRODUCT REVIEWS ====================
+
+class ReviewCreate(BaseModel):
+    product_id: str
+    shop_id: str
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = ""
+    customer_name: Optional[str] = ""
+
+@api_router.post("/public/reviews")
+async def create_review(data: ReviewCreate):
+    """Public endpoint - customers can submit reviews"""
+    # Verify product exists
+    product = await db.products.find_one({"id": data.product_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    review_doc = {
+        "id": str(uuid.uuid4()),
+        "product_id": data.product_id,
+        "shop_id": data.shop_id,
+        "rating": data.rating,
+        "comment": data.comment[:500] if data.comment else "",
+        "customer_name": data.customer_name[:100] if data.customer_name else "Anoniman kupac",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "approved": True
+    }
+    await db.reviews.insert_one(review_doc)
+    
+    # Notify seller
+    await create_notification(
+        product["user_id"],
+        "Nova recenzija",
+        f"{review_doc['customer_name']} je ostavio/la ocenu {data.rating}★ za {product['name']}",
+        "info",
+        data.product_id
+    )
+    
+    return {"success": True, "review_id": review_doc["id"]}
+
+@api_router.get("/public/reviews/{product_id}")
+async def get_product_reviews(product_id: str):
+    """Get reviews for a product"""
+    reviews = await db.reviews.find(
+        {"product_id": product_id, "approved": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    avg_rating = 0
+    if reviews:
+        avg_rating = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
+    
+    return {"reviews": reviews, "average_rating": avg_rating, "total": len(reviews)}
+
+@api_router.get("/public/shop-reviews/{shop_id}")
+async def get_shop_reviews(shop_id: str):
+    """Get all reviews for a shop's products"""
+    reviews = await db.reviews.find(
+        {"shop_id": shop_id, "approved": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    
+    avg_rating = 0
+    if reviews:
+        avg_rating = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
+    
+    return {"reviews": reviews, "average_rating": avg_rating, "total": len(reviews)}
+
 # ==================== ORDERS ROUTES ====================
 
 def generate_order_number():
@@ -1396,6 +1705,17 @@ async def update_order_status(order_id: str, data: OrderStatusUpdate, user: dict
     
     await db.orders.update_one({"id": order_id}, {"$set": update_data})
     updated = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    
+    # Send email notification to customer
+    customer = order.get("customer", {})
+    customer_email = customer.get("email") if customer else None
+    if customer_email and data.status in STATUS_LABELS:
+        import asyncio
+        asyncio.ensure_future(send_order_status_email(
+            customer_email, order.get("order_number", ""), data.status,
+            user.get("business_name", "Prodavnica"), order.get("tracking_id")
+        ))
+    
     return OrderResponse(**updated)
 
 @api_router.delete("/orders/{order_id}")

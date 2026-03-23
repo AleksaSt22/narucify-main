@@ -15,7 +15,13 @@ import {
   Users,
   TrendingUp,
   ArrowRight,
-  BarChart3
+  BarChart3,
+  Plus,
+  Store,
+  Settings,
+  Sparkles,
+  Share2,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -31,6 +37,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = language === 'sr' ? 'Dashboard — Narucify' : 'Dashboard — Narucify';
     fetchData();
   }, []);
 
@@ -109,6 +116,62 @@ export default function DashboardPage() {
             {t('welcome')}, <span className="gradient-text">{user?.business_name}</span>
           </h1>
           <p className="text-muted-foreground mt-2">{language === 'sr' ? 'Pregled tvog biznisa' : 'Your business overview'}</p>
+        </div>
+
+        {/* Getting Started - for new users */}
+        {(stats?.total_products || 0) === 0 && (
+          <Card className="animate-fade-in border-primary/20 bg-primary/5">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-foreground">{language === 'sr' ? 'Dobrodošao! Hajde da počnemo.' : 'Welcome! Let\'s get started.'}</h2>
+                  <p className="text-sm text-muted-foreground">{language === 'sr' ? 'Prati ove korake da pokreneš svoju prodavnicu' : 'Follow these steps to launch your shop'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onClick={() => navigate('/products')} className="flex items-center gap-3 p-4 rounded-lg bg-background border border-border/50 hover:border-primary/40 transition-colors text-left group">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">1</div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">{language === 'sr' ? 'Dodaj proizvode' : 'Add products'}</p>
+                    <p className="text-xs text-muted-foreground">{language === 'sr' ? 'Unesi artikle sa cenama' : 'Enter items with prices'}</p>
+                  </div>
+                </button>
+                <button onClick={() => navigate('/settings')} className="flex items-center gap-3 p-4 rounded-lg bg-background border border-border/50 hover:border-primary/40 transition-colors text-left group">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">2</div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">{language === 'sr' ? 'Podesi prodavnicu' : 'Set up shop'}</p>
+                    <p className="text-xs text-muted-foreground">{language === 'sr' ? 'Tema, logo, opis' : 'Theme, logo, description'}</p>
+                  </div>
+                </button>
+                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/shop/${user?.id}`); }} className="flex items-center gap-3 p-4 rounded-lg bg-background border border-border/50 hover:border-primary/40 transition-colors text-left group">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">3</div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">{language === 'sr' ? 'Podeli link' : 'Share link'}</p>
+                    <p className="text-xs text-muted-foreground">{language === 'sr' ? 'Na Instagram / WhatsApp' : 'On Instagram / WhatsApp'}</p>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Quick Actions */}
+        <div className="flex flex-wrap gap-2 animate-fade-in">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate('/products')}>
+            <Plus className="w-3.5 h-3.5" /> {language === 'sr' ? 'Novi proizvod' : 'New product'}
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate('/orders')}>
+            <FileText className="w-3.5 h-3.5" /> {language === 'sr' ? 'Porudžbine' : 'Orders'}
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open(`/shop/${user?.id}`, '_blank')}>
+            <Store className="w-3.5 h-3.5" /> {language === 'sr' ? 'Moja prodavnica' : 'My shop'}
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate('/settings')}>
+            <Settings className="w-3.5 h-3.5" /> {language === 'sr' ? 'Podešavanja' : 'Settings'}
+          </Button>
         </div>
 
         {/* Stats Grid - Bento Style */}
@@ -335,6 +398,29 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Shop Link */}
+        {user?.id && (
+          <Card className="animate-fade-in">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Store className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{language === 'sr' ? 'Link tvoje prodavnice' : 'Your shop link'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{window.location.origin}/shop/{user.id}</p>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/shop/${user.id}`); }}>
+                  <Share2 className="w-3 h-3" /> {language === 'sr' ? 'Kopiraj' : 'Copy'}
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => window.open(`/shop/${user.id}`, '_blank')}>
+                  {language === 'sr' ? 'Otvori' : 'Open'} <ArrowRight className="w-3 h-3" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );

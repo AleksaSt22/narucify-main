@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight, X, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2, ImageIcon, Link as LinkIcon, Copy, Search, Store, Check, Upload, ChevronLeft, ChevronRight, X, AlertTriangle, FileUp, Download } from 'lucide-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC_URL = window.location.origin;
@@ -36,6 +36,7 @@ export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [csvImporting, setCsvImporting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -48,6 +49,7 @@ export default function ProductsPage() {
   const [togglingShop, setTogglingShop] = useState(null);
 
   useEffect(() => {
+    document.title = language === 'sr' ? 'Proizvodi — Narucify' : 'Products — Narucify';
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -206,15 +208,67 @@ export default function ProductsPage() {
             <h1 className="text-3xl font-bold font-heading text-foreground">{t('products')}</h1>
             <p className="text-muted-foreground mt-1">{products.length} {t('items')}</p>
           </div>
-          <Button 
-            onClick={() => openDialog()} 
-            className="primary-gradient hover:opacity-90 gap-2"
-            data-testid="add-product-btn"
-            disabled={user?.plan_limits?.max_products && products.length >= user.plan_limits.max_products}
-          >
-            <Plus className="w-4 h-4" />
-            {t('addProduct')}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => window.open(`${API_URL}/products/csv-template`, '_blank')}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">CSV {language === 'sr' ? 'šablon' : 'template'}</span>
+            </Button>
+            <label>
+              <input
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setCsvImporting(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await axios.post(`${API_URL}/products/import-csv`, formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    const { imported, errors } = res.data;
+                    if (imported > 0) {
+                      toast.success(language === 'sr' ? `Uvezeno ${imported} proizvoda` : `Imported ${imported} products`);
+                      fetchProducts();
+                    }
+                    if (errors?.length > 0) {
+                      toast.warning(errors.slice(0, 3).join('\n'));
+                    }
+                    if (imported === 0 && (!errors || errors.length === 0)) {
+                      toast.info(language === 'sr' ? 'Nema proizvoda za uvoz' : 'No products to import');
+                    }
+                  } catch (err) {
+                    toast.error(err.response?.data?.detail || (language === 'sr' ? 'Greška pri uvozu' : 'Import error'));
+                  } finally {
+                    setCsvImporting(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer" asChild disabled={csvImporting}>
+                <span>
+                  {csvImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">CSV {language === 'sr' ? 'uvoz' : 'import'}</span>
+                </span>
+              </Button>
+            </label>
+            <Button 
+              onClick={() => openDialog()} 
+              className="primary-gradient hover:opacity-90 gap-2"
+              data-testid="add-product-btn"
+              disabled={user?.plan_limits?.max_products && products.length >= user.plan_limits.max_products}
+            >
+              <Plus className="w-4 h-4" />
+              {t('addProduct')}
+            </Button>
+          </div>
         </div>
 
         {/* Plan limit warning */}

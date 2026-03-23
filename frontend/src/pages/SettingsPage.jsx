@@ -72,7 +72,9 @@ import {
   RectangleHorizontal,
   Megaphone,
   Info,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Truck,
+  CreditCard
 } from 'lucide-react';
 import BadgeCelebration from '../components/BadgeCelebration';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -84,6 +86,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export default function SettingsPage() {
   const { t, language, setLanguage } = useLanguage();
   const { user, refreshUser } = useAuth();
+  const [settingsTab, setSettingsTab] = useState('profile');
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [featureModalOpen, setFeatureModalOpen] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
@@ -839,11 +842,38 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <div className="space-y-8 max-w-6xl" data-testid="settings-page">
+      <div className="space-y-6 max-w-6xl" data-testid="settings-page">
         {/* Header */}
         <div className="animate-fade-in">
           <h1 className="text-3xl font-bold font-heading text-white">{t('settings')}</h1>
         </div>
+
+        {/* Tab Navigation */}
+        <div className="animate-fade-in flex gap-2 flex-wrap">
+          {[
+            { id: 'profile', icon: Building2, label: language === 'sr' ? 'Profil' : 'Profile' },
+            { id: 'shop', icon: ShoppingBag, label: language === 'sr' ? 'Prodavnica' : 'Shop' },
+            { id: 'design', icon: Palette, label: language === 'sr' ? 'Dizajn' : 'Design' },
+            { id: 'delivery', icon: Truck, label: language === 'sr' ? 'Kuponi & Dostava' : 'Coupons & Delivery' },
+            { id: 'plan', icon: CreditCard, label: language === 'sr' ? 'Plan' : 'Plan' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSettingsTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                settingsTab === tab.id
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'bg-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ========== PROFILE TAB ========== */}
+        {settingsTab === 'profile' && (<>
 
         {/* Profile Section */}
         <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
@@ -1151,6 +1181,11 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        </>)}
+
+        {/* ========== SHOP TAB ========== */}
+        {settingsTab === 'shop' && (<>
+
         {/* Moja Ponuda (Storefront) Link */}
         <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
           <CardHeader>
@@ -1306,6 +1341,23 @@ export default function SettingsPage() {
                 {language === 'sr' ? 'Prikazuje se na vrhu tvoje prodavnice' : 'Shown at the top of your shop'}
               </p>
             </div>
+          </CardContent>
+        </Card>
+        </>)}
+
+        {/* ========== DESIGN TAB ========== */}
+        {settingsTab === 'design' && (<>
+        <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-white">
+              <Palette className="w-5 h-5 text-primary" />
+              {language === 'sr' ? 'Dizajn prodavnice' : 'Shop Design'}
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              {language === 'sr' ? 'Tema, raspored i prilagođavanje izgleda' : 'Theme, layout and appearance customization'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
 
             {/* Theme Picker */}
             <div className="pt-4 border-t border-zinc-800">
@@ -1650,18 +1702,26 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+        </>)}
 
-            {/* Social Contact Links */}
-            <div className="pt-4 border-t border-zinc-800">
-              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
-                <MessageCircle className="w-4 h-4" />
-                {language === 'sr' ? 'Kontakt dugmad na prodavnici' : 'Contact buttons on shop'}
-              </p>
-              <p className="text-xs text-zinc-500 mb-3">
-                {language === 'sr' 
-                  ? 'Kupci će moći da te kontaktiraju direktno sa prodavnice. Ostavi prazno ako ne želiš da prikazuješ.'
-                  : 'Customers can contact you directly from the shop. Leave empty to hide.'}
-              </p>
+        {/* ========== SHOP TAB (continued) - Social & Features ========== */}
+        {settingsTab === 'shop' && (<>
+
+        {/* Social Contact Links */}
+        <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-white text-base">
+              <MessageCircle className="w-5 h-5 text-primary" />
+              {language === 'sr' ? 'Kontakt linkovi' : 'Contact Links'}
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              {language === 'sr' ? 'Kupci će moći da te kontaktiraju direktno sa prodavnice' : 'Customers can contact you directly from the shop'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
@@ -1712,18 +1772,21 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Feature Toggles */}
-            <div className="pt-4 border-t border-zinc-800">
-              <p className="text-sm text-zinc-400 flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4" />
-                {language === 'sr' ? 'Funkcije prodavnice' : 'Shop Features'}
-              </p>
-              <p className="text-xs text-zinc-500 mb-4">
-                {language === 'sr' 
-                  ? 'Uključi ili isključi dodatne opcije za svoju prodavnicu.'
-                  : 'Enable or disable additional options for your shop.'}
-              </p>
+        {/* Feature Toggles Card */}
+        <Card className="animate-fade-in bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-white text-base">
+              <Zap className="w-5 h-5 text-primary" />
+              {language === 'sr' ? 'Funkcije prodavnice' : 'Shop Features'}
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              {language === 'sr' ? 'Uključi ili isključi dodatne opcije za svoju prodavnicu.' : 'Enable or disable additional options for your shop.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
               <div className="space-y-4">
                 {/* Low Stock Badge */}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
@@ -1848,58 +1911,13 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-            </div>
           </CardContent>
         </Card>
-        <Card className="animate-fade-in bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="font-heading flex items-center gap-2 text-white">
-              <Gift className="w-5 h-5 text-purple-400" />
-              {language === 'sr' ? 'Pozovi Prijatelja' : 'Refer a Friend'}
-            </CardTitle>
-            <CardDescription className="text-zinc-300">
-              {language === 'sr' 
-                ? 'Oba dobijate mesec dana PRO besplatno!'
-                : 'Both of you get one month PRO free!'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-zinc-900/50 border border-purple-500/20">
-              <p className="text-sm text-zinc-400 mb-2">
-                {language === 'sr' ? 'Tvoj referral link:' : 'Your referral link:'}
-              </p>
-              <div className="flex gap-2">
-                <Input 
-                  value={`${window.location.origin}/register?ref=${user?.referral_code || ''}`}
-                  readOnly
-                  className="bg-zinc-800 border-zinc-700 text-white font-mono text-sm"
-                />
-                <Button 
-                  onClick={copyReferralCode}
-                  className={referralCopied ? 'bg-green-500' : 'bg-purple-500 hover:bg-purple-600'}
-                >
-                  {referralCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-zinc-400">
-                  {language === 'sr' ? 'Pozvao si' : 'You invited'}
-                </p>
-                <p className="text-2xl font-bold text-white">{user?.referral_count || 0}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-zinc-400">
-                  {language === 'sr' ? 'Uštedeo si' : 'You saved'}
-                </p>
-                <p className="text-2xl font-bold text-purple-400">
-                  {((user?.referral_count || 0) * 13.99).toFixed(2)}€
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
+        </>)}
+
+        {/* ========== DELIVERY TAB ========== */}
+        {settingsTab === 'delivery' && (<>
 
         {/* Coupon Codes Management */}
         <CouponsSection language={language} />
@@ -1969,6 +1987,62 @@ export default function SettingsPage() {
               >
                 🇬🇧 {t('english')}
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        </>)}
+
+        {/* ========== PLAN TAB ========== */}
+        {settingsTab === 'plan' && (<>
+
+        {/* Refer a Friend */}
+        <Card className="animate-fade-in bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
+          <CardHeader>
+            <CardTitle className="font-heading flex items-center gap-2 text-white">
+              <Gift className="w-5 h-5 text-purple-400" />
+              {language === 'sr' ? 'Pozovi Prijatelja' : 'Refer a Friend'}
+            </CardTitle>
+            <CardDescription className="text-zinc-300">
+              {language === 'sr' 
+                ? 'Oba dobijate mesec dana PRO besplatno!'
+                : 'Both of you get one month PRO free!'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 rounded-lg bg-zinc-900/50 border border-purple-500/20">
+              <p className="text-sm text-zinc-400 mb-2">
+                {language === 'sr' ? 'Tvoj referral link:' : 'Your referral link:'}
+              </p>
+              <div className="flex gap-2">
+                <Input 
+                  value={`${window.location.origin}/register?ref=${user?.referral_code || ''}`}
+                  readOnly
+                  className="bg-zinc-800 border-zinc-700 text-white font-mono text-sm"
+                />
+                <Button 
+                  onClick={copyReferralCode}
+                  className={referralCopied ? 'bg-green-500' : 'bg-purple-500 hover:bg-purple-600'}
+                >
+                  {referralCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-400">
+                  {language === 'sr' ? 'Pozvao si' : 'You invited'}
+                </p>
+                <p className="text-2xl font-bold text-white">{user?.referral_count || 0}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-zinc-400">
+                  {language === 'sr' ? 'Uštedeo si' : 'You saved'}
+                </p>
+                <p className="text-2xl font-bold text-purple-400">
+                  {((user?.referral_count || 0) * 13.99).toFixed(2)}€
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -2397,6 +2471,8 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        </>)}
       </div>
 
       {/* Badge Celebration Modal */}

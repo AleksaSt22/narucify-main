@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -18,14 +18,48 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [emailNotVerified, setEmailNotVerified] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const googleBtnRef = useRef(null);
 
-  // Wake up backend on page load (Render free tier spins down after 15min)
+  // Wake up backend + set page title
   useEffect(() => {
+    document.title = 'Prijava — Narucify';
     axios.get(`${API_URL}/health`).catch(() => {});
   }, []);
+
+  // Google Sign-In
+  const handleGoogleCallback = useCallback(async (response) => {
+    try {
+      const result = await googleLogin(response.credential);
+      toast.success(t('loginSuccess'));
+      navigate(result.is_new ? '/onboarding' : '/dashboard');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Google prijava nije uspela');
+    }
+  }, [googleLogin, navigate, t]);
+
+  useEffect(() => {
+    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (clientId && window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCallback,
+      });
+      if (googleBtnRef.current) {
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          type: 'standard',
+          theme: 'filled_black',
+          size: 'large',
+          width: '100%',
+          text: 'signin_with',
+          shape: 'rectangular',
+          logo_alignment: 'left',
+        });
+      }
+    }
+  }, [handleGoogleCallback]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,6 +153,16 @@ export default function LoginPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 {t('login')}
               </Button>
+
+              {process.env.REACT_APP_GOOGLE_CLIENT_ID && (
+                <>
+                  <div className="relative my-2">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/50" /></div>
+                    <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">{t('or') || 'ili'}</span></div>
+                  </div>
+                  <div ref={googleBtnRef} className="w-full flex justify-center" />
+                </>
+              )}
 
               {emailNotVerified && (
                 <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3">

@@ -35,7 +35,9 @@ import {
   Heart,
   Search,
   ArrowUpDown,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Star,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -603,6 +605,10 @@ export default function MiniShopPage() {
   const [couponDiscount, setCouponDiscount] = useState(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewAvg, setReviewAvg] = useState(0);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', customer_name: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -800,6 +806,21 @@ export default function MiniShopPage() {
       setSubmitting(false);
     }
   };
+
+  // ==================== REVIEWS ====================
+  const fetchReviews = async (productId) => {
+    try {
+      const res = await axios.get(`${API_URL}/public/reviews/${productId}`);
+      setReviews(res.data.reviews || []);
+      setReviewAvg(res.data.average_rating || 0);
+    } catch { setReviews([]); }
+  };
+
+  // Fetch reviews when product selected
+  useEffect(() => {
+    if (selectedProduct?.id) { fetchReviews(selectedProduct.id); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct?.id]);
 
   // ==================== LOADING ====================
   if (loading) {
@@ -1550,6 +1571,34 @@ export default function MiniShopPage() {
     ) : null
   );
 
+  // ==================== REVIEWS (continued) ====================
+  const submitReview = async (productId) => {
+    if (!reviewForm.rating) return;
+    setSubmittingReview(true);
+    try {
+      await axios.post(`${API_URL}/public/reviews`, {
+        product_id: productId,
+        shop_id: shopId,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+        customer_name: reviewForm.customer_name
+      });
+      setReviewForm({ rating: 5, comment: '', customer_name: '' });
+      fetchReviews(productId);
+    } catch { /* ignore */ }
+    setSubmittingReview(false);
+  };
+
+  const StarRating = ({ value, onChange, size = 'w-5 h-5' }) => (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <button key={i} type="button" onClick={() => onChange?.(i)} className="focus:outline-none">
+          <Star className={`${size} ${i <= value ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} ${onChange ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`} />
+        </button>
+      ))}
+    </div>
+  );
+
   // ==================== PRODUCT DETAIL VIEW ====================
   const renderProductDetail = () => {
     if (!selectedProduct) return null;
@@ -1683,6 +1732,68 @@ export default function MiniShopPage() {
                   <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? 'fill-red-500' : ''}`} /> {t('wishlist')}
                 </Button>
               </div>
+            </div>
+          </div>
+
+          {/* Reviews Section */}
+          <div className="mt-8">
+            <div className="flex items-center gap-3 mb-4">
+              <h3 className={`text-lg font-semibold ${theme.textPrimary}`}>{language === 'sr' ? 'Recenzije' : 'Reviews'}</h3>
+              {reviewAvg > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <StarRating value={Math.round(reviewAvg)} size="w-4 h-4" />
+                  <span className={`text-sm ${theme.textSecondary}`}>({reviewAvg.toFixed(1)}) · {reviews.length}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Review list */}
+            {reviews.length > 0 ? (
+              <div className="space-y-3 mb-6">
+                {reviews.map((r, i) => (
+                  <div key={i} className={`p-3 rounded-lg ${theme.cardBg} border ${theme.cardBorder}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`font-medium text-sm ${theme.textPrimary}`}>{r.customer_name || (language === 'sr' ? 'Anonimno' : 'Anonymous')}</span>
+                      <StarRating value={r.rating} size="w-3.5 h-3.5" />
+                    </div>
+                    {r.comment && <p className={`text-sm ${theme.textSecondary}`}>{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-sm ${theme.textSecondary} mb-4`}>{language === 'sr' ? 'Još nema recenzija. Budite prvi!' : 'No reviews yet. Be the first!'}</p>
+            )}
+
+            {/* Submit review */}
+            <div className={`p-4 rounded-lg border ${theme.cardBorder} ${theme.cardBg}`}>
+              <h4 className={`text-sm font-medium ${theme.textPrimary} mb-3`}>{language === 'sr' ? 'Ostavite recenziju' : 'Leave a review'}</h4>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`text-sm ${theme.textSecondary}`}>{language === 'sr' ? 'Ocena:' : 'Rating:'}</span>
+                <StarRating value={reviewForm.rating} onChange={(v) => setReviewForm(f => ({...f, rating: v}))} size="w-5 h-5" />
+              </div>
+              <input
+                type="text"
+                placeholder={language === 'sr' ? 'Vaše ime (opciono)' : 'Your name (optional)'}
+                value={reviewForm.customer_name}
+                onChange={e => setReviewForm(f => ({...f, customer_name: e.target.value}))}
+                className={`w-full mb-2 px-3 py-2 rounded-lg border text-sm ${theme.inputBg || 'bg-white'} ${theme.textPrimary} ${theme.cardBorder}`}
+              />
+              <textarea
+                placeholder={language === 'sr' ? 'Komentar (opciono)' : 'Comment (optional)'}
+                value={reviewForm.comment}
+                onChange={e => setReviewForm(f => ({...f, comment: e.target.value}))}
+                rows={2}
+                className={`w-full mb-3 px-3 py-2 rounded-lg border text-sm ${theme.inputBg || 'bg-white'} ${theme.textPrimary} ${theme.cardBorder} resize-none`}
+              />
+              <Button
+                size="sm"
+                className={`${theme.btnPrimary} gap-1.5`}
+                style={{ borderRadius: btnRadius }}
+                disabled={submittingReview || !reviewForm.rating}
+                onClick={() => submitReview(product.id)}
+              >
+                <Send className="w-4 h-4" /> {submittingReview ? '...' : (language === 'sr' ? 'Pošalji' : 'Submit')}
+              </Button>
             </div>
           </div>
 
