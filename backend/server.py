@@ -578,20 +578,6 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-@api_router.get("/test-email/{email}")
-async def test_email(email: str, user: dict = Depends(get_current_user)):
-    """Test endpoint to debug Resend email sending (admin only)"""
-    test_token = str(uuid.uuid4())
-    result = await send_verification_email(email, test_token)
-    return {
-        "email_to": email,
-        "resend_api_key_set": bool(RESEND_API_KEY),
-        "from_email": RESEND_FROM_EMAIL,
-        "frontend_url": FRONTEND_URL,
-        "verify_url": f"{FRONTEND_URL}/verify-email/{test_token}",
-        "result": result
-    }
-
 # ==================== AUTH HELPERS ====================
 
 def check_rate_limit(identifier: str) -> bool:
